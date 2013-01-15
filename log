@@ -15,21 +15,28 @@ Todo:
 
 Ideas so far:
 	Proper userlist, that updates on connect/disconnect
+		- send userlist when that happens, make client update contents
 		able to double-click to start private msg
 	Channels
 		/join, /part, /leave
+		- channellist
+		- connect users and channels
+		- when command is sent, also send which window/channel was active
 	User-levels
 		op, voice, ownership
 		autoop, autovoice
+		- files with userlevels
+		- files with users connected to channels
 	Make server notifications more clear, split into categories maybe?
 		Make them appear in either status or active window?
+		- create different message types OR add propery to JSON: toWindow
 	Channels and private messages require different windows
 		How to handle this?
 	Auto-link url's in chat
 	Add colors for different kind of messags/notifications
-	Maybe add color choices for each user?
+		Maybe add color choices for each user?
 	Add chat history?
-	Log-files?
+		Log-files?
 	Create max-buffer for windows
 
 --------------------------------------------------------------------------------
