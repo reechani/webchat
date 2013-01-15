@@ -11,6 +11,7 @@ Todo:
 	look into what other chats can do and make list of things to add
 	take old js-code and see if it can be cleaned up
 	insert comments into old js-code
+	change readme to .md (learn a bit markdown)
 
 Ideas so far:
 	Proper userlist, that updates on connect/disconnect
