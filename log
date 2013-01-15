@@ -1,0 +1,34 @@
+2013-01-15
+
+Made git repo, installed msysgit
+Made first commit
+	README.txt
+Connected project to studentserver, for testing enviroment
+The chatserver will be run on jane.graveraven.net
+Created index.php, mostly empty right now
+
+Todo:
+	look into what other chats can do and make list of things to add
+	take old js-code and see if it can be cleaned up
+	insert comments into old js-code
+
+Ideas so far:
+	Proper userlist, that updates on connect/disconnect
+		able to double-click to start private msg
+	Channels
+		/join, /part, /leave
+	User-levels
+		op, voice, ownership
+		autoop, autovoice
+	Make server notifications more clear, split into categories maybe?
+		Make them appear in either status or active window?
+	Channels and private messages require different windows
+		How to handle this?
+	Auto-link url's in chat
+	Add colors for different kind of messags/notifications
+	Maybe add color choices for each user?
+	Add chat history?
+	Log-files?
+	Create max-buffer for windows
+
+--------------------------------------------------------------------------------
