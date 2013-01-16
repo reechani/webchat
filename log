@@ -1,5 +1,7 @@
 2013-01-15
 
+ca 2 hrs
+
 Made git repo, installed msysgit
 Made first commit
 	README.txt
@@ -40,3 +42,55 @@ Ideas so far:
 	Create max-buffer for windows
 
 --------------------------------------------------------------------------------
+2013-01-16
+
+ca 2 hrs
+
+Sketching on userlist and channellist
+For now: focus on making the server work when it's online
+	no file-backup stuff just yet - look into that later
+Made list of commands
+
+Ideas:
+	/nick command for registering and stuff?
+		how does server remember?
+	add ban/kick to channels - op only
+	/ignore
+	/whois ?
+	/list - list all channels
+	/names #channel - list names in channel
+		with argument - arg = channel
+		without argument - for active channel
+	/topic - channel topic, op only
+		with argument - set topic
+		without argument - view topic
+
+Should channels know which users have special levels or should it be saved with
+	the user? Probably channel. Only keep track of op/voice
+Keep track of channel<->user in both channel and user?
+Max msg lenght?
+max nick lenght?
+
+Commands:
+	/help [command]
+		no arg: list commands
+	/msg nick text
+	/me [text]
+	/nick nick
+	/ignore [nick]
+		no arg: list ignores
+	/unignore nick
+	/whois nick
+	/slap nick
+	/list
+	/names [channel]
+		no arg: list users in active channel
+	/join channel
+	/part [text]
+	/leave
+	/topic [text]
+		no arg: view topic
+	/op nick [nick+]
+	/voice nick [nick+]
+	/kick nick [text]
+	/ban nick [text]
