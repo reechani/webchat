@@ -172,12 +172,22 @@ COMM.msg.desc = "/msg [nick] [message]<br/>"
  */
 COMM.me = function(sender, channel, msg) {
 	var out, json, type;
-	// msg type? notice? maybe?
-	type = "action";
-	out = sender + " " + msg;
-	// broadcast to channel
+	if (channel == "log") {
+		type = "error";
+		channel = "log";
+		out = "Must write command in channel window";
+	} else {
+		type = "action";
+		out = sender + " " + msg;
+	}
+
 	json = createJSON(out, "Server", type, channel);
-	broadcastMsg(json, channel);
+	if(type == "error") {
+		connectedClients[userList[sender].id].sendUTF(json);
+	} else {
+		// broadcast to channel
+		broadcastMsg(json, channel);
+	}
 }
 COMM.me.desc = "/me (action-text)<br/>"
 + "<br/>" + "Prints an action-type text into the active channel"
@@ -211,12 +221,17 @@ COMM.nick = function(id, oldNick, newNick) {
 		delete userList[oldNick];
 		userList[newNick] = user;
 		// set newNick in all the channels lists from activeChannel
-		out = "is now known as " + newNick;
+		out = oldNick + " is now known as " + newNick;
 		for(i=0; i<user.activeChannels.length; i++) {
 			index = channelList[user.activeChannels[i]].users.indexOf(oldNick);
 			channelList[user.activeChannels[i]].users[index] = newNick;
 			// send nickchange to each channel
 			json = createJSON(out, oldNick, type, user.activeChannels[i])
+			broadcastMsg(json, user.activeChannels[i]);
+			
+			// send updated userlist
+			type = "users";
+			json = createJSON(channelList[user.activeChannels[i]].users, "Server", type, user.activeChannels[i]);
 			broadcastMsg(json, user.activeChannels[i]);
 		}
 		// send as notice to user
@@ -331,9 +346,22 @@ COMM.join.desc = "/join (#)[channel]<br/>"
 + "<br/>" + "Will create new channel if none with that name exists"
 + "<br/>" + "# is optional, ie /join qwe and /join #qwe will make you join same channel";
 
-COMM.part = function(userName, channel) {
-	
+COMM.part = function(user, channel) {
+	var out, type, json;
+	// does channel exist?
+	if(channel !== undefined && channel !== "" ) {
+		// is the user in the channel?
+		if(userList[user].activeChannels.indexOf(channel) > -1) {
+			// in channel
+			// remove user from channel listings
+			removeUserFromChannels(userList[userName], userName);
+		} else {
+			// not in that channel
+		}
+	} else {
+		// channel name/id missing
 	}
+}
 COMM.part.desc = "/part<br/>"
 + "<br/>" + "Used to leave channels"
 + "<br/>" + "Needs to be written in the channel window of which you want to leave";
@@ -472,12 +500,12 @@ function acceptConnectionAsChat(request) {
 						break;
 					case("me"):
 						// is in channel?
-						if(userList[userName].activeChannels.length !== 0) {
-							args = msg.split(" ");
-							args.shift(); // remove command
-							var action = args.join(" ");
-							COMM.me(userName, channel, action);
-						}
+						//						if(userList[userName].activeChannels.length !== 0) {
+						args = msg.split(" ");
+						args.shift(); // remove command
+						var action = args.join(" ");
+						COMM.me(userName, channel, action);
+						//						}
 						break;
 					case("msg"):
 						args = msg.split(" ");
