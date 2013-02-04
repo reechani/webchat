@@ -151,6 +151,8 @@ TODO next:
 --------------------------------------------------------------------------------
 2013-01-30
 
+ca 6 hrs
+
 what happens when user is already in the channel they try to join?
 check if user is banned?
 don't add the same user!
@@ -172,3 +174,77 @@ DONE:
 TODO: make sure client opens window when private received
 	figure out how to handles ignores
 	fix /nick (no prev name, no change in user lists at client)
+
+--------------------------------------------------------------------------------
+2013-02-04
+
+ca  hrs
+
+tested private message
+	writing in window works
+	windows work
+	writing to yourself works (double output)
+tested join channel
+channel:
+	hilight works
+	writing works
+	/me works in channel
+!->	/me in status crashes server FIXED
+
+tested nick:
+	output * is known as janey
+!->		ie: no prev name output	FIXED
+!->	no change in userlist at client	FIXED
+		but seems to be working on server end
+	special chars are either not shown or as &amp; and so on
+	
+TODO Client:
+	Closing windows
+		when channel: leave
+	functions of typical things to do
+		toggle chatwindow
+		getting & sending msg
+	combine removehilight/addhilight
+	on double click in userlist - open a private window
+		able to send msg from there
+	don't write PM time in chat
+	connect via the enter key
+	
+
+TODO Server:
+	fix /nick command
+	finish /help
+	fix /me when written in status
+	start on other commands
+		unignore
+		whois
+		slap
+	4	list
+	3	names
+	1	part
+	2	leave
+	5	topic
+		
+		op
+		voice
+		kick
+		ban
+		(quit)
+	make function to remove user from channellist
+->		remake removeUserFromChannels to single channel
+		
+
+-> figure out where to ignore
+-> fix timestring (one hour off)
+-> fix on close, so msg to clients is sent
+
+commands do not work in /msg window
+	can't do /me there
+	combine certain commands?
+		or /care >.<
+
+DONE
+	/me now handles status window (error msg sent)
+	/nick now prints correct to user
+		updates userlists
+	
