@@ -11,3 +11,10 @@ Assignment:
 		HTML5, CSS3
 	Desc:
 		Make a more advanced chatclient, similar to those found online today
+
+
+COMM - Contains command functions
+	help(id, command)
+		id - id for user server recieved command from
+		command - the line user sent
+		Sends message back to user

@@ -44,7 +44,7 @@ Ideas so far:
 --------------------------------------------------------------------------------
 2013-01-16
 
-ca 2 hrs
+ca 4 hrs
 
 Sketching on userlist and channellist
 For now: focus on making the server work when it's online
@@ -70,6 +70,8 @@ Should channels know which users have special levels or should it be saved with
 Keep track of channel<->user in both channel and user?
 Max msg lenght?
 max nick lenght?
+Where do we add the time? When message came from client, or when it's processes and about to send?
+	Send seems easier
 
 Commands:
 	/help [command]
@@ -94,3 +96,79 @@ Commands:
 	/voice nick [nick+]
 	/kick nick [text]
 	/ban nick [text]
+	/quit [text]
+
+Functions probably needed:
+	Check that nick is online
+	Check that string is not empty
+	Send error message for commands
+
+--------------------------------------------------------------------------------
+2013-01-18
+
+ca 6 hrs
+
+Thought about how to save client config. Maybe SQLite is the most portable option?
+How to send channel with messages? Add it to the start of the string won't work..
+Finished /msg, /help, /me, /nick and /ignore
+Make json of it on clientside aswell? might work
+Send : {channel, message}
+Have to figure out how to display colors depending on msg
+Add hilighting!
+Make sure what comes in to the functions is correctly formatted
+Make sure users are actually ignored
+
+--------------------------------------------------------------------------------
+2013-01-23
+
+ca 7 hrs
+
+copied over old files for testing
+put the server online, started testing commands
+fixed msg, help
+
+should fix join so I can start testing the channels
+have to create some sort of window management
+
+made most of the UI
+creates windows, saves history, changes windows
+updates channellisting
+--------------------------------------------------------------------------------
+2013-01-29
+
+todo: when joining a channel:
+		add it if it's new
+		send info back to user, topic and stuff
+		send userlist back to user
+			show names
+	clientside needs to take care of stuff it gets
+
+on output check if it's the active log
+	else add it to history
+
+TODO next:
+	make sending userlist work
+--------------------------------------------------------------------------------
+2013-01-30
+
+what happens when user is already in the channel they try to join?
+check if user is banned?
+don't add the same user!
+broadcast userlist when new user enters or leaves
+
+make sure no 2 users can have same name
+
+
+DONE:
+	userlist is changed and displayed on join and window change
+	checking that username is not used more than once
+		gives random nr added to end
+	checks that user is not already in channel
+	removes user from channel listings when closing connection
+	sends that user has closed connection and new user listings
+	now handles private windows on client side
+
+
+TODO: make sure client opens window when private received
+	figure out how to handles ignores
+	fix /nick (no prev name, no change in user lists at client)
