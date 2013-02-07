@@ -247,4 +247,12 @@ DONE
 	/me now handles status window (error msg sent)
 	/nick now prints correct to user
 		updates userlists
-	
+--------------------------------------------------------------------------------
+2013-02-07
+
+ca 1 hrs
+
+TODO:
+	Make sure /part works without argument (channel user is in)
+
+DONE: Part seems to be working, also clears on clientside
