@@ -137,7 +137,9 @@ $(document).ready(function(){
 		console.log("Setting channel as active: " + channel);
 		console.log("Previous active: " + active);
 		// save that from log right now to active window
-		channels[active].history = $("#log").html();
+		if(channels[active] !== undefined) {
+			channels[active].history = $("#log").html();
+		}
 		// put history in log
 		$("#log").html(channels[channel].history);
 		$("#hChannel").text(channels[channel].name);
@@ -153,6 +155,11 @@ $(document).ready(function(){
 			// close channel
 			console.log("Closing channel: " + channel);
 			delete channels[channel];
+			// remove channel from window aswell
+			updateChannels();
+			// clear users
+			updateUsers([], false);
+			setActiveChannel("log");
 		} else {
 			// open channel
 			console.log("Opening channel: " + channel);
@@ -195,7 +202,9 @@ $(document).ready(function(){
 		} else if(!Array.isArray(users)) {
 			users = users.split(",");
 		}
-		channels[channel].users = users;
+		if(channel !== false) {
+			channels[channel].users = users;
+		}
 		
 		console.log("Updating userList");
 		var active = $("#userList").val();
@@ -309,6 +318,8 @@ $(document).ready(function(){
 		active = "";
 		$("#userList").empty();
 		$("#channelList").empty();
+		$("#hChannel").empty();
+		$("#hTopic").empty();
 	}
 
 	// Send a message to the server
