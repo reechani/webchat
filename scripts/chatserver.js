@@ -67,18 +67,32 @@ function rand(min, max) {
 	return Math.floor((Math.random()*max)+min);
 }
 
-function removeUserFromChannels(user, userName) {
+function clearUserFromAllChannels(user, userName) {
 	for(var i in user.activeChannels) {
+		//		var channel = user.activeChannels[i];
+		//		var index = channelList[channel].users.indexOf(userName);
+		//		channelList[channel].users.splice(index, 1);
+		//		// update others userlists?
+		//		var json = createJSON(channelList[channel].users, "Server", "users", channel);
+		//		broadcastMsg(json, channel);
+		//		var out = userName + " has quit";
+		//		json = createJSON(out, "Server", "status", channel);
+		//		broadcastMsg(json, channel);		
 		var channel = user.activeChannels[i];
-		var index = channelList[channel].users.indexOf(userName);
-		channelList[channel].users.splice(index, 1);
-		// update others userlists?
-		var json = createJSON(channelList[channel].users, "Server", "users", channel);
-		broadcastMsg(json, channel);
+		removeUserFromChannel(userName, channel);
 		var out = userName + " has quit";
 		json = createJSON(out, "Server", "status", channel);
 		broadcastMsg(json, channel);
 	}
+}
+
+function removeUserFromChannel(userName, channel) {
+	var users = channelList[channel].users
+	var index = users.indexOf(userName);
+	users.splice(index, 1);
+	var json = createJSON(users, "Server", "users", channel);
+	broadcastMsg(json, channel);
+	return userName + " has left";
 }
 
 // -----------------------------------------------------------------------------
@@ -349,17 +363,27 @@ COMM.join.desc = "/join (#)[channel]<br/>"
 COMM.part = function(user, channel) {
 	var out, type, json;
 	// does channel exist?
-	if(channel !== undefined && channel !== "" ) {
-		// is the user in the channel?
-		if(userList[user].activeChannels.indexOf(channel) > -1) {
-			// in channel
-			// remove user from channel listings
-			removeUserFromChannels(userList[userName], userName);
-		} else {
-			// not in that channel
-		}
+	if(userList[user].activeChannels.indexOf(channel) > -1) {
+		// in channel
+		// remove user from channel listings
+		out = removeUserFromChannel(user, channel);
+		type = "status";
 	} else {
-		// channel name/id missing
+		// not in that channel
+		type = "error";
+		out = "You're not in that channel";
+		channel = false;
+	}
+	json = createJSON(out, "Server", type, channel);
+	if(type === "status") {
+		broadcastMsg(json, channel);
+		json = JSON.stringify({
+			type: "toggle",
+			name: channel
+		});
+		connectedClients[userList[user].id].sendUTF(json);
+	} else {
+		connectedClients[userList[user].id].sendUTF(json);
 	}
 }
 COMM.part.desc = "/part<br/>"
@@ -527,6 +551,17 @@ function acceptConnectionAsChat(request) {
 						channel = channel.replace("#", "");
 						COMM.join(userName, channel);
 						break;
+					case("part"):
+						args = msg.split(" ");
+						args.shift();
+						var partChannel = args.shift();
+						if(partChannel === undefined || partChannel === "") {
+							COMM.part(userName, channel);
+						} else if(partChannel !== channel) {
+							partChannel = partChannel.replace("#", "");
+							COMM.part(userName, partChannel);
+						}
+						break;
 					case("slap"):
 						break;
 					case("names"):
@@ -557,7 +592,7 @@ function acceptConnectionAsChat(request) {
 		console.log(time + " Peer " + connection.remoteAddress + " disconnected broadcastid = " + connection.broadcastId + ".");
 		message = "User " +  userName + " disconnected";
 		json = createJSON(message, "Server", "message");
-		removeUserFromChannels(userList[userName], userName);
+		clearUserFromAllChannels(userList[userName], userName);
 		delete userList[userName];
 		connectedClients[connection.broadcastId] = null;
 	//		broadcastMsg(json);
