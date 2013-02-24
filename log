@@ -256,3 +256,7 @@ TODO:
 	Make sure /part works without argument (channel user is in)
 
 DONE: Part seems to be working, also clears on clientside
+
+--------------------------------------------------------------------------------
+2013-02-24
+
