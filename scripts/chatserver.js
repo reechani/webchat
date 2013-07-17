@@ -68,16 +68,7 @@ function rand(min, max) {
 }
 
 function clearUserFromAllChannels(user, userName) {
-	for(var i in user.activeChannels) {
-		//		var channel = user.activeChannels[i];
-		//		var index = channelList[channel].users.indexOf(userName);
-		//		channelList[channel].users.splice(index, 1);
-		//		// update others userlists?
-		//		var json = createJSON(channelList[channel].users, "Server", "users", channel);
-		//		broadcastMsg(json, channel);
-		//		var out = userName + " has quit";
-		//		json = createJSON(out, "Server", "status", channel);
-		//		broadcastMsg(json, channel);		
+	for(var i in user.activeChannels) {		
 		var channel = user.activeChannels[i];
 		removeUserFromChannel(userName, channel);
 		var out = userName + " has quit";
@@ -87,9 +78,12 @@ function clearUserFromAllChannels(user, userName) {
 }
 
 function removeUserFromChannel(userName, channel) {
-	var users = channelList[channel].users
+	var users = channelList[channel].users;
 	var index = users.indexOf(userName);
 	users.splice(index, 1);
+	var channels = userList[userName].activeChannels;
+	index = channels.indexOf(channel);
+	channels.splice(index, 1);
 	var json = createJSON(users, "Server", "users", channel);
 	broadcastMsg(json, channel);
 	return userName + " has left";
@@ -259,6 +253,9 @@ COMM.nick = function(id, oldNick, newNick) {
 COMM.nick.desc = "/nick [newNick]<br/>"
 + "<br/>" + "Used to change your visible nickname";
 
+/**
+ *	IGNORE
+ */
 COMM.ignore = function(id, user, nick) {
 	var out, type, json;
 	// is nick a online user?
@@ -278,31 +275,86 @@ COMM.ignore = function(id, user, nick) {
 COMM.ignore.desc = "/ignore [username]<br/>"
 + "<br/>" + "Used to filter out anything send from this user";
 
+/**
+ *	UNIGNORE
+ */
 COMM.unignore = function(user, nick) {
 	
 	}
 COMM.unignore.desc = "";
 
-COMM.whois = function() {
-	
+/**
+ *	WHOIS
+ */
+COMM.whois = function(user, nick) {
+	var out, type, json;
+	type = "notice";
+	out = nick + "@" + connectedClients[userList[nick].id].remoteAddress + "<br/>";
+	out += "Channels: ";
+	for(var i in userList[nick].activeChannels) {
+		out += "#" + userList[nick].activeChannels[i] + " ";
 	}
-COMM.whois.desc = "";
+	out += "<br/>Idle: " + connectedClients[userList[nick].id].socket._idleStart;
+	
+	json = createJSON(out, "Server", type, false);
+	connectedClients[userList[user].id].sendUTF(json);
+}
+COMM.whois.desc = "/whois [username]<br/>"
++ "<br/>" + "Prints information about user";
 
+/**
+ *	SLAP
+ */
 COMM.slap = function() {
 	
 	}
 COMM.slap.desc = "";
 
-COMM.list = function() {
-	
+/**
+ *	LIST
+ */
+COMM.list = function(userName) {
+	var out, type, json;
+	// lists all channels
+	// get all channels and make string to send
+	out = "Active channels:<br/>";
+	for(var channel in channelList) {
+		out += "#" + channel + "<br/>";
 	}
-COMM.list.desc = "";
+	type = "notice";
+	json = createJSON(out, "Server", type, false);
+	connectedClients[userList[userName].id].sendUTF(json);
+}
+COMM.list.desc = "/list <br/>"
++ "<br/>" + "Lists all currently active channels";
 
-COMM.names = function() {
+/**
+ *	NAMES
+ */
+COMM.names = function(userName, channel) {
+	var out, type, json;
 	
+	if(channel !== "log") {
+		out = "Users currently in " + channel + ":<br/>";
+	
+		for(var user in channelList[channel].users) {
+			out += "[" + channelList[channel].users[user] + "]";
+		}
+		type = "status";
+	} else {
+		type = "error";
+		out = "Invalid channel, cannot list users for " + channel;
 	}
-COMM.names.desc = "";
+	
+	json = createJSON(out, "Server", type, channel);
+	connectedClients[userList[userName].id].sendUTF(json);
+}
+COMM.names.desc = "/names (channel)<br/>"
++ "<br/>" + "Lists all users currently in channel";
 
+/**
+ *	JOIN
+ */
 COMM.join = function(user, channel) {
 	var out, type, json;
 	// does channel exist?
@@ -334,7 +386,7 @@ COMM.join = function(user, channel) {
 			// topic, if set
 			if(channelList[channel].topic !== false) {
 				type = "topic";
-				json = createJSON(channelList[channel].topic, "Server", type, channel);
+				json = createJSON(channelList[channel].topic.topicText, "Server", type, channel);
 				connectedClients[userList[user].id].sendUTF(json);
 			}
 			// send userlist back to user
@@ -360,6 +412,9 @@ COMM.join.desc = "/join (#)[channel]<br/>"
 + "<br/>" + "Will create new channel if none with that name exists"
 + "<br/>" + "# is optional, ie /join qwe and /join #qwe will make you join same channel";
 
+/**
+ *	PART
+ */
 COMM.part = function(user, channel) {
 	var out, type, json;
 	// does channel exist?
@@ -390,36 +445,119 @@ COMM.part.desc = "/part<br/>"
 + "<br/>" + "Used to leave channels"
 + "<br/>" + "Needs to be written in the channel window of which you want to leave";
 
-COMM.leave = function() {
-	
+/**
+ *	LEAVE
+ */
+COMM.leave = function(user, channel) {
+	var out, type, json;
+	// does channel exist?
+	if(userList[user].activeChannels.indexOf(channel) > -1) {
+		// in channel
+		// remove user from channel listings
+		out = removeUserFromChannel(user, channel);
+		type = "status";
+	} else {
+		// not in that channel
+		type = "error";
+		out = "You're not in that channel";
+		channel = false;
 	}
-COMM.leave.desc = "";
-
-COMM.topic = function() {
-	
+	json = createJSON(out, "Server", type, channel);
+	if(type === "status") {
+		broadcastMsg(json, channel);
+		json = JSON.stringify({
+			type: "toggle",
+			name: channel
+		});
+		connectedClients[userList[user].id].sendUTF(json);
+	} else {
+		connectedClients[userList[user].id].sendUTF(json);
 	}
-COMM.topic.desc = "";
+}
+COMM.leave.desc = "/leave<br/>"
++ "<br/>" + "Used to leave channels"
++ "<br/>" + "Needs to be written in the channel window of which you want to leave";
 
+/**
+ *	TOPIC
+ */
+COMM.topic = function(userName, channel, topic) {
+	// if topic is set, set topic, else just print it to user	
+	var out, type, json;
+	//is user op?
+	if(topic !== undefined && topic !== "") {
+		var index = channelList[channel].ops.indexOf(userName);
+		if(index > -1) {
+			// op
+			channelList[channel].setTopic(topic, userName);
+			out = userName + " set topic to: " + topic; // broadcast
+			type = "status";
+			json = createJSON(out, "Server", type, channel);
+			broadcastMsg(json, channel);
+			// send new topic text to inferface
+			// TODO
+			out = topic;
+			type = "topic";
+			json = createJSON(out, userName, type, channel);
+			broadcastMsg(json, channel);
+		} else {
+			// not op
+			// can't do that -  no permission
+			out = "You don't have permission to change topic";
+			type = "error";
+			// unicast
+			json = createJSON(out, "Server", type, channel);
+			connectedClients[userList[userName].id].sendUTF(json);
+		}
+	} else {
+		// print it to user
+		if(channelList[channel].topic !== false) {
+			out = channelList[channel].topic.topicText + ", set by " + channelList[channel].topic.who + " at " + channelList[channel].topic.time.toLocaleTimeString();
+		} else {
+			out = "Topic not set";
+		}
+		type = "status";
+		json = createJSON(out, "Server", type, channel);
+		connectedClients[userList[userName].id].sendUTF(json);
+	}
+}
+COMM.topic.desc = "/topic [text]<br/>";
+
+/**
+ *	OP
+ */
 COMM.op = function() {
 	
 	}
 COMM.op.desc = "";
 
+/**
+ *	VOICE
+ */
 COMM.voice = function() {
 	
 	}
 COMM.voice.desc = "";
 
+/**
+ *	KICK
+ */
 COMM.kick = function() {
 	
 	}
 COMM.kick.desc = "";
 
+/**
+ *	BAN
+ */
 COMM.ban = function() {
 	
 	}
 COMM.ban.desc = "";
 
+/**
+ *	QUIT
+ */
 COMM.quit = function() {
 	
 	}
@@ -429,7 +567,7 @@ COMM.quit.desc = "";
 // CHANNEL as object
 // -----------------------------------------------------------------------------
 function Channel(user) {
-	this.ops	=	[],
+	this.ops	=	[user],
 	this.voice	=	[],
 	this.bans	=	[],
 	this.users	=	[],
@@ -522,15 +660,6 @@ function acceptConnectionAsChat(request) {
 						var whatComm = (args[1] !== undefined) ? args[1] : false;
 						COMM.help(connection.broadcastId, whatComm);
 						break;
-					case("me"):
-						// is in channel?
-						//						if(userList[userName].activeChannels.length !== 0) {
-						args = msg.split(" ");
-						args.shift(); // remove command
-						var action = args.join(" ");
-						COMM.me(userName, channel, action);
-						//						}
-						break;
 					case("msg"):
 						args = msg.split(" ");
 						args.shift(); // remove command
@@ -538,17 +667,53 @@ function acceptConnectionAsChat(request) {
 						msg = args.join(" ");
 						COMM.msg(connection.broadcastId, userName, nick, msg)
 						break;
+					case("me"):
+						// is in channel?
+						// if(userList[userName].activeChannels.length !== 0) {
+						args = msg.split(" ");
+						args.shift(); // remove command
+						var action = args.join(" ");
+						COMM.me(userName, channel, action);
+						//						}
+						break;
 					case("nick"):
 						args = msg.split(" ");
 						args.shift();
 						nick = args.shift();
 						userName = COMM.nick(connection.broadcastId, userName, nick);
 						break;
+					//					case("ignore"):
+					//						break;
+					//					case("unignore"):
+					//						break;
+					case("whois"):
+						args = msg.split(" ");
+						args.shift();
+						nick = args.shift();
+						COMM.whois(userName, nick);
+						break;
+					//					case("slap"):
+					//						break;
+					case("list"):
+						COMM.list(userName);
+						break;
+					case("names"):
+						args = msg.split(" ");
+						args.shift();
+						var listChannel = args.shift();
+						if(listChannel === undefined || listChannel === "") {
+							COMM.names(userName, channel);
+						} else if(listChannel !== channel) {
+							listChannel = listChannel.replace("#", "");
+							COMM.names(userName, listChannel);
+						}
+						break;
 					case("join"):
 						args = msg.split(" ");
 						args.shift();
 						channel = args.shift();
-						channel = channel.replace("#", "");
+						if(channel !== undefined || channel )
+							channel = channel.replace("#", "");
 						COMM.join(userName, channel);
 						break;
 					case("part"):
@@ -560,14 +725,37 @@ function acceptConnectionAsChat(request) {
 						} else if(partChannel !== channel) {
 							partChannel = partChannel.replace("#", "");
 							COMM.part(userName, partChannel);
+						} else {
+							COMM.part(userName, channel);
 						}
 						break;
-					case("slap"):
+					case("leave"):
+						args = msg.split(" ");
+						args.shift();
+						var leaveChannel = args.shift();
+						if(leaveChannel === undefined || leaveChannel === "") {
+							COMM.leave(userName, channel);
+						} else if(leaveChannel !== channel) {
+							leaveChannel = leaveChannel.replace("#", "");
+							COMM.leave(userName, leaveChannel);
+						} else {
+							COMM.leave(userName, channel);
+						}
 						break;
-					case("names"):
+					case("topic"):
+						args = msg.split(" ");
+						args.shift();
+						var topicTxt = args.shift();
+						COMM.topic(userName, channel, topicTxt);
 						break;
-					case("ignore"):
-						break;
+					//					case("op"):
+					//						break;
+					//					case("voice"):
+					//						break;
+					//					case("kick"):
+					//						break;
+					//					case("ban"):
+					//						break;
 					default:
 						// send message that command does not exist
 						message = "Unknown command: " + msg;

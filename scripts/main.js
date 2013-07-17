@@ -225,8 +225,12 @@ $(document).ready(function(){
 	
 	function changeTopic(data) {
 		console.log("Showing/changing topic");
-		//		channels[data.channel].topic = data.text.topicText;
-		console.log(data);
+		channels[data.channel].topic = data.text;
+		// if active window, change text
+		var active = $("#channelList").val();
+		if(active === data.channel) {
+			$("#hTopic").text(">> " + channels[data.channel].topic);
+		}
 	}
 	
 	function checkPrivateWindow(from) {
