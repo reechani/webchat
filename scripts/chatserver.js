@@ -536,8 +536,10 @@ COMM.topic = function(userName, channel, topic) {
 		}
 	} else {
 		// print it to user
-		if(channelList[channel].topic !== false) {
-			out = channelList[channel].topic.topicText + ", set by " + channelList[channel].topic.who + " at " + channelList[channel].topic.time.toLocaleTimeString();
+		var topic = channelList[channel].topic;
+		if(topic !== false) {
+			var time = new Date(topic.time);
+			out = topic.topicText + ", set by " + topic.who + " at " + time.toLocaleString();
 		} else {
 			out = "Topic not set";
 		}
