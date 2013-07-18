@@ -103,7 +103,6 @@ function createUserlist(channel) {
 	for(i in users) {
 		index = ops.indexOf(users[i]);
 		if(index > -1) {
-			console.log("user " + users[i] + " is op");
 			opUsers.push("@" + users[i]);
 		} else {
 			regular.push(users[i]);
@@ -277,35 +276,35 @@ COMM.nick = function(id, oldNick, newNick) {
 COMM.nick.desc = "/nick [newNick]<br/>"
 + "<br/>" + "Used to change your visible nickname";
 
-/**
- *	IGNORE
- */
-COMM.ignore = function(id, user, nick) {
-	var out, type, json;
-	// is nick a online user?
-	if(!isNickUsed(nick)) {
-		// if not send error
-		type = "error";
-		out = "User " + nick + " was not found";
-	} else {
-		// if it is, add it to userList[user].ignores
-		userList[user].ignores.push(nick);
-		out = "User " + nick + " now ignored";
-		type = "notice";
-	}
-	json = createJSON(out, "Server", type, false);
-	connectedClients[id].sendUTF(json);
-}
-COMM.ignore.desc = "/ignore [username]<br/>"
-+ "<br/>" + "Used to filter out anything send from this user";
-
-/**
- *	UNIGNORE
- */
-COMM.unignore = function(user, nick) {
-	
-	}
-COMM.unignore.desc = "";
+///**
+// *	IGNORE
+// */
+//COMM.ignore = function(id, user, nick) {
+//	var out, type, json;
+//	// is nick a online user?
+//	if(!isNickUsed(nick)) {
+//		// if not send error
+//		type = "error";
+//		out = "User " + nick + " was not found";
+//	} else {
+//		// if it is, add it to userList[user].ignores
+//		userList[user].ignores.push(nick);
+//		out = "User " + nick + " now ignored";
+//		type = "notice";
+//	}
+//	json = createJSON(out, "Server", type, false);
+//	connectedClients[id].sendUTF(json);
+//}
+//COMM.ignore.desc = "/ignore [username]<br/>"
+//+ "<br/>" + "Used to filter out anything send from this user";
+//
+///**
+// *	UNIGNORE
+// */
+//COMM.unignore = function(user, nick) {
+//	
+//	}
+//COMM.unignore.desc = "";
 
 /**
  *	WHOIS
@@ -548,15 +547,48 @@ COMM.topic = function(userName, channel, topic) {
 		connectedClients[userList[userName].id].sendUTF(json);
 	}
 }
-COMM.topic.desc = "/topic [text]<br/>";
+COMM.topic.desc = "/topic (text)<br/>";
 
 /**
  *	OP
  */
-COMM.op = function() {
-	
+COMM.op = function(userName, channel, userToOp) {
+	var out, type, json,
+	activeChannel = channelList[channel];
+	// is username op?
+	if(activeChannel.ops.indexOf(userName) > -1) {
+		// user is op
+		// is target in channel?
+		if(activeChannel.users.indexOf(userToOp) > -1) {
+			// is target already op?
+			if(activeChannel.ops.indexOf(userToOp) == -1) {
+				activeChannel.ops.push(userToOp);
+				type = "status";
+				out = userToOp + " has been oped by " + userName;
+			} else {
+				type = "error";
+				out = "User is already op";
+			}
+		} else {
+			type = "error";
+			out = "User is not in channel";
+		}
+	} else {
+		type = "error";
+		out = "You don't have permission to do that";
 	}
-COMM.op.desc = "";
+	json = createJSON(out, "Server", type, channel);
+	if(type == "error") {
+		connectedClients[userList[userName].id].sendUTF(json);
+	} else {
+		broadcastMsg(json, channel);
+		var clientUserlist = createUserlist(channel);
+		type = "users";
+		json = createJSON(clientUserlist, "Server", type, channel)
+		broadcastMsg(json, channel);
+	}
+}
+COMM.op.desc = "/op [username]<br/>";
 
 /**
  *	DEOP
@@ -800,8 +832,12 @@ function acceptConnectionAsChat(request) {
 						var topicTxt = args.shift();
 						COMM.topic(userName, channel, topicTxt);
 						break;
-					//					case("op"):
-					//						break;
+					case("op"):
+						args = msg.split(" ");
+						args.shift();
+						var userToOp = args.shift();
+						COMM.op(userName, channel, userToOp);
+						break;
 					//					case("deop"):
 					//						break;
 					//					case("voice"):
