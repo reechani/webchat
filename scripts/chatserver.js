@@ -89,6 +89,30 @@ function removeUserFromChannel(userName, channel) {
 	return userName + " has left";
 }
 
+/**
+ *	Create a userlist for client with ops marked
+ */
+function createUserlist(channel) {
+	var i,
+	index,
+	users = channelList[channel].users,
+	ops = channelList[channel].ops,
+	regular = [],
+	opUsers = [],
+	clientUserlist = [];
+	for(i in users) {
+		index = ops.indexOf(users[i]);
+		if(index > -1) {
+			console.log("user " + users[i] + " is op");
+			opUsers.push("@" + users[i]);
+		} else {
+			regular.push(users[i]);
+		}
+	}
+	clientUserlist = opUsers.concat(regular);
+	return clientUserlist;
+}
+
 // -----------------------------------------------------------------------------
 // COMMANDS
 // -----------------------------------------------------------------------------
@@ -391,7 +415,8 @@ COMM.join = function(user, channel) {
 			}
 			// send userlist back to user
 			type = "users";
-			json = createJSON(channelList[channel].users, "Server", type, channel)
+			var usersInChannel = createUserlist(channel);
+			json = createJSON(usersInChannel, "Server", type, channel)
 			broadcastMsg(json, channel);
 		
 			// send msg that user connected to all other users in channel
