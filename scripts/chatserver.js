@@ -559,12 +559,28 @@ COMM.op = function() {
 COMM.op.desc = "";
 
 /**
+ *	DEOP
+ */
+COMM.deop = function() {
+	
+	}
+COMM.deop.desc = "";
+
+/**
  *	VOICE
  */
 COMM.voice = function() {
 	
 	}
 COMM.voice.desc = "";
+
+/**
+ *	DEVOICE
+ */
+COMM.devoice = function() {
+	
+	}
+COMM.devoice.desc = "";
 
 /**
  *	KICK
@@ -581,6 +597,15 @@ COMM.ban = function() {
 	
 	}
 COMM.ban.desc = "";
+
+/**
+ *	UNBAN
+ */
+COMM.unban = function() {
+	
+	}
+COMM.ban.desc = "";
+
 
 /**
  *	QUIT
@@ -777,11 +802,17 @@ function acceptConnectionAsChat(request) {
 						break;
 					//					case("op"):
 					//						break;
+					//					case("deop"):
+					//						break;
 					//					case("voice"):
+					//						break;
+					//					case("devoice"):
 					//						break;
 					//					case("kick"):
 					//						break;
 					//					case("ban"):
+					//						break;
+					//					case("unban"):
 					//						break;
 					default:
 						// send message that command does not exist
