@@ -63,54 +63,73 @@ function isNickUsed(nick) {
 	return valid;
 }
 
+/**
+ * Randomization function for set interval
+ * 
+ */
 function rand(min, max) {
 	return Math.floor((Math.random()*max)+min);
 }
 
+/**
+ *	Clears user from all channel listings, used on quit/disconnect
+ *	
+ */
 function clearUserFromAllChannels(user, userName) {
-	for(var i in user.activeChannels) {		
-		var channel = user.activeChannels[i];
-		removeUserFromChannel(userName, channel);
-		var out = userName + " has quit";
-		json = createJSON(out, "Server", "status", channel);
-		broadcastMsg(json, channel);
+	var i, json, out, channels = user.getChannels();
+	for(i in channels) {
+		if(user.leaveChannel(channels[i])) {
+			var channel = channelList[channels[i]];
+			if(channel.removeUser(userName)) {
+				// send userlist
+				json = createJSON(channel.createUserlist(), "Server", "users", channels[i])
+				channel.broadcastMsg(json);
+				
+				// to channel
+				out = userName + " has quit";
+				json = createJSON(out, "Server", "status", channels[i]);
+				channel.broadcastMsg(json);
+			}
+		}
 	}
 }
 
-function removeUserFromChannel(userName, channel) {
-	var users = channelList[channel].users;
-	var index = users.indexOf(userName);
-	users.splice(index, 1);
-	var channels = userList[userName].activeChannels;
-	index = channels.indexOf(channel);
-	channels.splice(index, 1);
-	var json = createJSON(users, "Server", "users", channel);
-	broadcastMsg(json, channel);
-	return userName + " has left";
-}
+//function removeUserFromChannel(userName, channel) {
+//	var users = channelList[channel].users;
+//	var index = users.indexOf(userName);
+//	users.splice(index, 1);
+//	var channels = userList[userName].activeChannels;
+//	index = channels.indexOf(channel);
+//	channels.splice(index, 1);
+//	var json = createJSON(users, "Server", "users", channel);
+//	broadcastMsg(json, channel);
+//	return userName + " has left";
+//}
 
 /**
  *	Create a userlist for client with ops marked
+ *	TODO: move to channel prototype
  */
-function createUserlist(channel) {
-	var i,
-	index,
-	users = channelList[channel].users,
-	ops = channelList[channel].ops,
-	regular = [],
-	opUsers = [],
-	clientUserlist = [];
-	for(i in users) {
-		index = ops.indexOf(users[i]);
-		if(index > -1) {
-			opUsers.push("@" + users[i]);
-		} else {
-			regular.push(users[i]);
-		}
-	}
-	clientUserlist = opUsers.concat(regular);
-	return clientUserlist;
-}
+//function createUserlist(channel) {
+//	var i,
+//	index,
+//	users = channelList[channel].users,
+//	ops = channelList[channel].ops,
+//	regular = [],
+//	opUsers = [],
+//	clientUserlist = [];
+//	for(i in users) {
+//		index = ops.indexOf(users[i]);
+//		if(index > -1) {
+//			opUsers.push("@" + users[i]);
+//		} else {
+//			regular.push(users[i]);
+//		}
+//	}
+//	clientUserlist = opUsers.concat(regular);
+//	return clientUserlist;
+//	
+//}
 
 // -----------------------------------------------------------------------------
 // COMMANDS
@@ -125,11 +144,16 @@ COMM.isComm = function(msg) {
 
 /**
  *	HELP
+ *	-> TODO
  */
-COMM.help = function(id, command) {
-	var out, json, type;
+COMM.help = function(sender, command) {
+	var out, json, type, user = userList[sender];
 	if(!command) {
 		// view all commands
+		/*	
+		 *	TODO:
+		 *	Find better way of listing commands available
+		 */
 		out = "help&#09;msg&#09;me&#09;nick&#09;join";
 		type = "notice";
 	} else {
@@ -140,7 +164,7 @@ COMM.help = function(id, command) {
 			out = "Command " + command + " was not a valid argument. Check the list of avaiable commands again.";
 			type = "error";
 		} else {
-			console.log(COMM.help.desc);
+			//			console.log(COMM.help.desc);
 			out = COMM[command].desc;
 			type = "notice";
 		}
@@ -148,7 +172,7 @@ COMM.help = function(id, command) {
 	// turn into json (msg, sender)
 	json = createJSON(out, "Server", type, false);
 	// sends back to user it came from
-	connectedClients[id].sendUTF(json);
+	user.sendMsg(json);
 }
 COMM.help.desc = "/help (command)<br/>"
 + "<br/>" + "Lists avaiable commands, and shows help on commands"
@@ -159,40 +183,44 @@ COMM.help.desc = "/help (command)<br/>"
 /**
  *	MSG
  */
-COMM.msg = function(id, sender, nick, msg) {
-	var out = "", json, type;
+COMM.msg = function(sender, nick, msg) {
+	var out, json, type, user = userList[sender], target = userList[nick];
 	// check that nick was valid
 	if(nick === undefined) {
 		out = "You must enter a nickname to send to.";
 		type = "error";
-		sender = "Server";
-		nick = false;
 	} else if (!isNickUsed(nick)) {
 		out = "User " + nick + " is not online.";
 		type = "error";
-		sender = "Server";
-		nick = false;
 	} else if(msg.replace(/\s/g, "").length === 0){
 		// check that message is not empty
 		// string is invalid
 		out = "Message missing.";
 		type = "error";
-		sender = "Server";
-		nick = false;
 	} else {
 		out = msg;
 		type = "private";
 	}
-	// create msg (time, msg, sender: to/from, new?)
-	json = createJSON(out, sender, type, nick);
-	// sends to user it came from and to user with nick
-	// to user it came from: sender: sender, channel: nick
-	connectedClients[id].sendUTF(json);
-	if(type === "private") {
-		// to user it is going to: sender: sender, channel: sender
-		json = createJSON(out, sender, type, sender);
-		connectedClients[userList[nick].id].sendUTF(json);
+	switch(type) {
+		case("error"):
+			json = createJSON(out, "Server", type, false);
+			break;
+		case("private"):
+			json = createJSON(out, sender, type, sender);
+			target.sendMsg(json);
+			json = createJSON(out, sender, type, nick);
+			break;
 	}
+	//	// create msg (time, msg, sender: to/from, new?)
+	//	json = createJSON(out, sender, type, nick);
+	//	// sends to user it came from and to user with nick
+	//	// to user it came from: sender: sender, channel: nick
+	user.sendMsg(json);
+//	if(type === "private") {
+//		// to user it is going to: sender: sender, channel: sender
+//		json = createJSON(out, sender, type, sender);
+//		target.sendMsg(json);
+//	}
 }
 COMM.msg.desc = "/msg [nick] [message]<br/>"
 + "<br/>" + "Send a private message to another user"
@@ -201,23 +229,31 @@ COMM.msg.desc = "/msg [nick] [message]<br/>"
 /**
  *	ME
  */
-COMM.me = function(sender, channel, msg) {
-	var out, json, type;
-	if (channel == "log") {
-		type = "error";
-		channel = "log";
-		out = "Must write command in channel window";
-	} else {
-		type = "action";
+COMM.me = function(sender, channelName, msg) {
+	var out, json, type, user = userList[sender], channel = channelList[channelName];
+	//	if (channelName == "log") {
+	//		type = "error";
+	//		out = "Must write command in channel window";
+	//	} else {
+	//		type = "action";
+	//		out = sender + " " + msg;
+	//	}
+	if(channel !== undefined) {
 		out = sender + " " + msg;
+		type = "action";
+	} else {
+		type = "error";
+		out = "Must write command in channel window";
 	}
 
 	json = createJSON(out, "Server", type, channel);
 	if(type == "error") {
-		connectedClients[userList[sender].id].sendUTF(json);
+		user.sendMsg(json);
+	//		connectedClients[userList[sender].id].sendUTF(json);
 	} else {
 		// broadcast to channel
-		broadcastMsg(json, channel);
+		channel.sendMsg(json);
+	//		broadcastMsg(json, channel);
 	}
 }
 COMM.me.desc = "/me (action-text)<br/>"
@@ -227,106 +263,105 @@ COMM.me.desc = "/me (action-text)<br/>"
 /**
  *	NICK
  */
-COMM.nick = function(id, oldNick, newNick) {
-	var out, type, json, nick, user, i, index;
+COMM.nick = function(sender, newNick) {
+	var out, type, json, nick, user = userList[sender], i;
 	// check that newNick doesn't already exist
-	if(isNickUsed(newNick)) {
+	if(newNick === sender) {
+		// check that newNick != oldNick
+		out = "You're nick already is " + sender;
+		type = "error";
+	//		nick = oldNick;
+	} else if(isNickUsed(newNick)) {
 		// someone else is already called that
 		out = "Nick " + newNick + " is already in use";
 		type = "error";
-		nick = oldNick;
-	} else if(newNick === oldNick) {
-		// check that newNick != oldNick
-		out = "You're nick already is " + oldNick;
+	//		nick = oldNick;
+	} else if(newNick === undefined || newNick === "") {
 		type = "error";
-		nick = oldNick;
+		out = "Nick can not be empty";
 	} else {
 		type = "status";
 		// trim nicklength
 		if(newNick.length > COMM.max_nick) {
 			newNick = newNick.slice(0, COMM.max_nick);
 		}
-		// set newNick in userlist
-		nick = newNick;
-		user = userList[oldNick];
-		delete userList[oldNick];
-		userList[newNick] = user;
-		// set newNick in all the channels lists from activeChannel
-		out = oldNick + " is now known as " + newNick;
-		for(i=0; i<user.activeChannels.length; i++) {
-			index = channelList[user.activeChannels[i]].users.indexOf(oldNick);
-			channelList[user.activeChannels[i]].users[index] = newNick;
-			// send nickchange to each channel
-			json = createJSON(out, oldNick, type, user.activeChannels[i])
-			broadcastMsg(json, user.activeChannels[i]);
-			
-			// send updated userlist
-			type = "users";
-			json = createJSON(channelList[user.activeChannels[i]].users, "Server", type, user.activeChannels[i]);
-			broadcastMsg(json, user.activeChannels[i]);
-		}
-		// send as notice to user
-		out = "You are now known as " + newNick;
-		json = createJSON(out, "Server", "notice", false);
-		connectedClients[id].sendUTF(json);
 	}
+	switch(type) {
+		case("error"):
+			nick = sender;
+			break;
+		case("status"):
+			// set newNick in userlist
+			nick = newNick;
+			delete userList[sender];
+			userList[nick] = user;
+			// set newNick in all the channels lists from activeChannel
+			var channels = user.getChannels();
+			out = sender + " is now known as " + nick;
+			for(i in channels) {
+				var channel = channelList[channels[i]];
+				// change nickname in channel
+				channel.switchName(sender, nick);
+				// send userlist to channel
+				json = createJSON(channel.createUserlist(), "Server", "users", channels[i]);
+				channel.broadcastMsg(json);
+				// send message of nickchange to channel
+				json = createJSON(out, sender, type, channels[i]);
+				channel.broadcastMsg(json);
+			}
+			//			for(i=0; i<user.activeChannels.length; i++) {
+			//				index = channelList[user.activeChannels[i]].users.indexOf(oldNick);
+			//				channelList[user.activeChannels[i]].users[index] = newNick;
+			//				// send nickchange to each channel
+			//				out = sender + " is now known as " + newNick;
+			//				json = createJSON(out, oldNick, type, user.activeChannels[i])
+			//				broadcastMsg(json, user.activeChannels[i]);
+			//							
+			//				// send updated userlist
+			//				type = "users";
+			//				json = createJSON(channelList[user.activeChannels[i]].users, "Server", type, user.activeChannels[i]);
+			//				broadcastMsg(json, user.activeChannels[i]);
+			//				}
+			// create msg for user
+			out = "You are now known as " + newNick;
+			break;
+	}
+	json = createJSON(out, "Server", "notice", false);
+	user.sendMsg(json);
 	// return nick set to server
 	return nick;
 }
 COMM.nick.desc = "/nick [newNick]<br/>"
 + "<br/>" + "Used to change your visible nickname";
 
-///**
-// *	IGNORE
-// */
-//COMM.ignore = function(id, user, nick) {
-//	var out, type, json;
-//	// is nick a online user?
-//	if(!isNickUsed(nick)) {
-//		// if not send error
-//		type = "error";
-//		out = "User " + nick + " was not found";
-//	} else {
-//		// if it is, add it to userList[user].ignores
-//		userList[user].ignores.push(nick);
-//		out = "User " + nick + " now ignored";
-//		type = "notice";
-//	}
-//	json = createJSON(out, "Server", type, false);
-//	connectedClients[id].sendUTF(json);
-//}
-//COMM.ignore.desc = "/ignore [username]<br/>"
-//+ "<br/>" + "Used to filter out anything send from this user";
-//
-///**
-// *	UNIGNORE
-// */
-//COMM.unignore = function(user, nick) {
-//	
-//	}
-//COMM.unignore.desc = "";
-
 /**
  *	WHOIS
  */
-COMM.whois = function(user, nick) {
-	var out, type, json;
-	type = "notice";
-	out = nick + "@" + connectedClients[userList[nick].id].remoteAddress + "<br/>";
-	out += "Channels: ";
-	for(var i in userList[nick].activeChannels) {
-		out += "#" + userList[nick].activeChannels[i] + " ";
+COMM.whois = function(sender, nick) {
+	var out, type, json, user = userList[sender], target = userList[nick];
+	if(target !== undefined) {
+		type = "notice";
+		out = target.getInfo(nick);		
+	} else {
+		type = "error";
+		out = "Nickname can not be empty";
 	}
-	out += "<br/>Idle: " + connectedClients[userList[nick].id].socket._idleStart;
+	//	out = nick + "@" + connectedClients[userList[nick].id].remoteAddress + "<br/>";
+	//	out += "Channels: ";
+	//	for(var i in userList[nick].activeChannels) {
+	//		out += "#" + userList[nick].activeChannels[i] + " ";
+	//	}
+	//	out += "<br/>Idle: " + connectedClients[userList[nick].id].socket._idleStart;
 	
 	json = createJSON(out, "Server", type, false);
-	connectedClients[userList[user].id].sendUTF(json);
+	user.sendMsg(json);
 }
 COMM.whois.desc = "/whois [username]<br/>"
 + "<br/>" + "Prints information about user";
 
 /**
  *	SLAP
+ *	-> EMPTY
  */
 COMM.slap = function() {
 	
@@ -337,7 +372,7 @@ COMM.slap.desc = "";
  *	LIST
  */
 COMM.list = function(userName) {
-	var out, type, json;
+	var out, type, json, user = userList[userName];
 	// lists all channels
 	// get all channels and make string to send
 	out = "Active channels:<br/>";
@@ -346,7 +381,7 @@ COMM.list = function(userName) {
 	}
 	type = "notice";
 	json = createJSON(out, "Server", type, false);
-	connectedClients[userList[userName].id].sendUTF(json);
+	user.sendMsg(json);
 }
 COMM.list.desc = "/list <br/>"
 + "<br/>" + "Lists all currently active channels";
@@ -354,23 +389,24 @@ COMM.list.desc = "/list <br/>"
 /**
  *	NAMES
  */
-COMM.names = function(userName, channel) {
-	var out, type, json;
+COMM.names = function(userName, channelName) {
+	var out, type, json, user = userList[userName], channel = channelList[channelName];
 	
-	if(channel !== "log") {
-		out = "Users currently in " + channel + ":<br/>";
-	
-		for(var user in channelList[channel].users) {
-			out += "[" + channelList[channel].users[user] + "]";
-		}
+	if(channelName !== "log" && channel !== undefined) {
+		out = channel.getNames();
+		//		out = "Users currently in " + channel + ":<br/>";
+		//	
+		//		for(var user in channelList[channel].users) {
+		//			out += "[" + channelList[channel].users[user] + "]";
+		//		}
 		type = "status";
 	} else {
 		type = "error";
-		out = "Invalid channel, cannot list users for " + channel;
+		out = "Invalid channel, cannot list users for " + channelName;
 	}
 	
-	json = createJSON(out, "Server", type, channel);
-	connectedClients[userList[userName].id].sendUTF(json);
+	json = createJSON(out, "Server", type, channelName);
+	user.sendMsg(json);
 }
 COMM.names.desc = "/names (channel)<br/>"
 + "<br/>" + "Lists all users currently in channel";
@@ -378,56 +414,55 @@ COMM.names.desc = "/names (channel)<br/>"
 /**
  *	JOIN
  */
-COMM.join = function(user, channel) {
-	var out, type, json;
-	// does channel exist?
-	if(channel !== undefined && channel !== "" ) {
+COMM.join = function(userName, channelName) {
+	var out, type, json, user = userList[userName], channel = channelList[channelName];
+	// is string empty?
+	if(channelName !== undefined && channelName !== "" ) {
 		// does channel exist?
-		if(channelList[channel] === undefined) {
-			channelList[channel] = new Channel(user);
+		if(channel === undefined) {
+			channel = channelList[channelName] = new Channel(userName);
 		}
-		// is user already in that channel?
-		if(userList[user].activeChannels.indexOf(channel) === -1) {
+		// check: user not in channel
+		if(!user.isIn(channelName)) {
+			//		if(userList[user].activeChannels.indexOf(channel) === -1) {
 			// tell client to open window
 			json = JSON.stringify({
 				type: "toggle",
-				name: channel
+				name: channelName
 			});
-			connectedClients[userList[user].id].sendUTF(json);
+			//			connectedClients[userList[user].id].sendUTF(json);
+			user.sendMsg(json);
 			
 			// add user
-			channelList[channel].users.push(user);
-			userList[user].activeChannels.push(channel);			
+			channel.addUser(userName);
+			//			channelList[channel].users.push(user);
+			user.addChannel(channelName);
+			//			userList[user].activeChannels.push(channel);
 			
 			// send topic and channel creation info back to user
-			// creation time
-			var time = new Date(channelList[channel].created.time);
-			out = "Channel was created by " + channelList[channel].created.who + " at " + time.toUTCString();
 			type = "status";
-			json = createJSON(out, "Server", type, channel);
-			connectedClients[userList[user].id].sendUTF(json);
-			// topic, if set
-			if(channelList[channel].topic !== false) {
-				type = "topic";
-				json = createJSON(channelList[channel].topic.topicText, "Server", type, channel);
-				connectedClients[userList[user].id].sendUTF(json);
-			}
+			json = createJSON(channel.getCreated(), "Server", type, channelName);
+			user.sendMsg(json);
+			// topic
+			type = "topic";
+			json = createJSON(channel.getTopic(), "Server", type, channelName);
+			user.sendMsg(json);
+			
 			// send userlist back to user
 			type = "users";
-			var usersInChannel = createUserlist(channel);
-			json = createJSON(usersInChannel, "Server", type, channel)
-			broadcastMsg(json, channel);
+			json = createJSON(channel.createUserlist(), "Server", type, channelName)
+			channel.broadcastMsg(json);
 		
 			// send msg that user connected to all other users in channel
 			type = "status";
-			out = user + " joined #" + channel;
-			json = createJSON(out, "Server", type, channel);
-			broadcastMsg(json, channel);
+			out = userName + " joined #" + channelName;
+			json = createJSON(out, "Server", type, channelName);
+			channel.broadcastMsg(json);
 		} else {
-			out = "You're already in " + channel;
+			out = "You're already in " + channelName;
 			type = "error";
-			json = createJSON(out, "Server", type, channel);
-			connectedClients[userList[user].id].sendUTF(json);
+			json = createJSON(out, "Server", type, channelName);
+			user.sendMsg(json);
 		}
 	}
 }
@@ -472,30 +507,37 @@ COMM.part.desc = "/part<br/>"
 /**
  *	LEAVE
  */
-COMM.leave = function(user, channel) {
-	var out, type, json;
-	// does channel exist?
-	if(userList[user].activeChannels.indexOf(channel) > -1) {
-		// in channel
-		// remove user from channel listings
-		out = removeUserFromChannel(user, channel);
-		type = "status";
+COMM.leave = function(userName, channelName) {
+	var out, type, json,
+	user = userList[userName],
+	channel = channelList[channelName];
+	// user functions
+	if(user.leaveChannel(channelName)) {
+		if(channel.removeUser(userName)) {
+			// send userlist
+			json = createJSON(createUserlist(channelName), "Server", "users", channelName)
+			channel.broadcastMsg(json);
+			
+			// to channel
+			out = userName + " has left " + channelName;
+			json = createJSON(out, "Server", "status", channelName);
+			channel.broadcastMsg(json);
+			
+			// to user
+			out = "You have left " + channelName;
+			json = createJSON(out, "Server", "notice", channelName);
+			user.sendMsg(json);
+		} else {
+			// was not in channel
+			out = "You are not in that channel";
+			json = createJSON(out, "Server", "error", channelName);
+			user.sendMsg(json);
+		}
 	} else {
-		// not in that channel
-		type = "error";
-		out = "You're not in that channel";
-		channel = false;
-	}
-	json = createJSON(out, "Server", type, channel);
-	if(type === "status") {
-		broadcastMsg(json, channel);
-		json = JSON.stringify({
-			type: "toggle",
-			name: channel
-		});
-		connectedClients[userList[user].id].sendUTF(json);
-	} else {
-		connectedClients[userList[user].id].sendUTF(json);
+		// was not in channel
+		out = "You are not in that channel";
+		json = createJSON(out, "Server", "error", channelName);
+		user.sendMsg(json);
 	}
 }
 COMM.leave.desc = "/leave<br/>"
@@ -593,34 +635,103 @@ COMM.op.desc = "/op [username]<br/>";
 /**
  *	DEOP
  */
-COMM.deop = function() {
-	
-	}
-COMM.deop.desc = "";
+COMM.deop = function(userName, channel, userToDeop) {
+	var out, type, json,
+	activeChannel = channelList[channel];
 
-/**
- *	VOICE
- */
-COMM.voice = function() {
-	
+	// is user op?
+	if(activeChannel.ops.indexOf(userName) > -1) {
+		// is target in channel?
+		if(activeChannel.users.indexOf(userToDeop) > -1) {
+			// is target op?
+			var index = activeChannel.ops.indexOf(userToDeop)
+			// is target owner? don't allow deop of owner
+			if(index > -1 && activeChannel.created.who != userToDeop) {
+				// remove target
+				activeChannel.ops.splice(index, 1);
+				type = "status";
+				out = userToDeop + " was deoped by " + userName;
+			} else if(activeChannel.created.who == userToDeop) {
+				type = "error";
+				out = "You can't deop the owner";
+			} else {
+				type = "error";
+				out = "User doesn't have op";
+			}
+		} else {
+			type = "error";
+			out = "User is not in channel";
+		}
+	} else {
+		// user is not op
+		type = "error";
+		out = "You don't have permission to do that";
 	}
-COMM.voice.desc = "";
-
-/**
- *	DEVOICE
- */
-COMM.devoice = function() {
-	
+	json = createJSON(out, "Server", type, channel);
+	if(type == "error") {
+		connectedClients[userList[userName].id].sendUTF(json);
+	} else {
+		// broadcast to channel
+		// broadcast new userlist
+		broadcastMsg(json, channel);
+		var clientUserlist = createUserlist(channel);
+		type = "users";
+		json = createJSON(clientUserlist, "Server", type, channel)
+		broadcastMsg(json, channel);
 	}
-COMM.devoice.desc = "";
+}
+COMM.deop.desc = "/deop [username]<br/>";
 
 /**
  *	KICK
  */
-COMM.kick = function() {
-	
+COMM.kick = function(userName, channel, userToKick) {
+	var type, out, json, activeChannel = channelList[channel];
+	// is user op?
+	if(activeChannel.ops.indexOf(userName) > -1) {
+		// is target in channel?
+		if(activeChannel.users.indexOf(userToKick) > -1) {
+			// is target not op?
+			var index = activeChannel.ops.indexOf(userToKick);
+			if(index < 0) {
+				// remove target from channel listings
+				activeChannel.users.splice(index, 1);
+				type = "status";
+				out = userToKick + " was kicked from channel by " + userName;
+				// remove channel from target listings and interface
+				// TODO
+				var target = userList[userToKick];
+				target.leaveChannel(channel);
+			} else if(activeChannel.created.who == userToKick) {
+				type = "error";
+				out = "You can't kick the owner";
+			} else {
+				type = "error";
+				out = "User has op, deop before kicking";
+			}
+		} else {
+			type = "error";
+			out = "User is not in channel";
+		}
+	} else {
+		// user is not op
+		type = "error";
+		out = "You don't have permission to do that";
 	}
-COMM.kick.desc = "";
+	json = createJSON(out, "Server", type, channel);
+	if(type == "error") {
+		connectedClients[userList[userName].id].sendUTF(json);
+	} else {
+		// broadcast to channel
+		// broadcast new userlist
+		broadcastMsg(json, channel);
+		var clientUserlist = createUserlist(channel);
+		type = "users";
+		json = createJSON(clientUserlist, "Server", type, channel)
+		broadcastMsg(json, channel);
+	}
+}
+COMM.kick.desc = "/kick [username]<br/>";
 
 /**
  *	BAN
@@ -651,15 +762,15 @@ COMM.quit.desc = "";
 // CHANNEL as object
 // -----------------------------------------------------------------------------
 function Channel(user) {
-	this.ops	=	[user],
-	this.voice	=	[],
-	this.bans	=	[],
-	this.users	=	[],
-	this.topic	=	false,
+	this.ops	=	[user];
+	this.voice	=	[];
+	this.bans	=	[];
+	this.users	=	[];
+	this.topic	=	false;
 	this.created =	{
 		who: user,
 		time: (new Date()).getTime()
-	}
+	};
 }
 
 Channel.prototype = {
@@ -669,6 +780,71 @@ Channel.prototype = {
 			who: user,
 			time: (new Date()).getTime()
 		}
+	},
+	addUser: function(user) {
+		this.users.push(user);
+		
+	},
+	removeUser: function(user) {
+		var index = this.users.indexOf(user);
+		if(index > -1) {
+			// remove from list
+			this.users.splice(index, 1);
+			return true;
+		} else {
+			return false;
+		}
+	},
+	broadcastMsg: function(json) {
+		var i, user;
+		for(i in this.users) {
+			user = userList[this.users[i]];
+			user.sendMsg(json);
+		}
+	},
+	createUserlist: function() {
+		var i, pos, list = this.users.slice(0);
+		for(i in this.ops) {
+			pos = list.indexOf(this.ops[i]);
+			list[pos] = "@" + list[pos];
+		}
+		list.sort();
+		//		console.log(list);
+		return list;
+	},
+	switchName: function(oldNick, newNick) {
+		var pos;
+		// find in userlist, switch
+		pos = this.users.indexOf(oldNick);
+		if(pos > -1) {
+			this.users[pos] = newNick;
+			// is op? switch
+			pos = this.ops.indexOf(oldNick);
+			if(pos > -1) {
+				this.ops[pos] = newNick;
+			}
+		}
+	},
+	getNames: function() {
+		var names, list = this.createUserlist();
+		names = "Users currently in channel:<br/>";
+		for(var i in list) {
+			names += "[" + list[i] + "] ";
+		}
+		return names;
+	},
+	getCreated: function() {
+		var time = new Date(this.created.time);
+		return "Channel was created by " + this.created.who + " at " + time.toLocaleString();
+	},
+	getTopic: function() {
+		//		this.topic = {
+		//			topicText: text,
+		//			who: user,
+		//			time: (new Date()).getTime()
+		//		}
+		var time = new Date(this.topic.time);
+		return !this.topic ? this.topic.topicText + ", set by " + this.topic.who + " at " + time.toLocaleString() : "";
 	}
 }
 
@@ -678,13 +854,53 @@ Channel.prototype = {
 
 function User(connection) {
 	this.id	= connection.broadcastId;
-	this.activeChannels	= [],
-	this.ignores = []
+	this.activeChannels	= [];
+	this.ignores = [];
 }
 
 User.prototype = {
-
+	idleTimer: 1000,
+	getChannels: function() {
+		return this.activeChannels;
+	},
+	addChannel: function(channel) {
+		this.activeChannels.push(channel);
+	},
+	leaveChannel: function(channel) {
+		var index = this.activeChannels.indexOf(channel);
+		if(index > -1) {
+			// remove channel from list
+			this.activeChannels.splice(index, 1);
+			// toggle window in interface
+			var json = JSON.stringify({
+				type: "toggle",
+				name: channel
+			});
+			this.sendMsg(json);
+			return true;
+		} else {
+			return false;
+		}
+	},
+	sendMsg: function(json) {
+		connectedClients[this.id].sendUTF(json);
+	},
+	getInfo: function(nick) {
+		var info = nick + "@" + connectedClients[this.id].remoteAddress + "<br/>";
+		info += "Channels: ";
+		for(var i in this.activeChannels) {
+			info += "#" + this.activeChannels[i] + " ";
+		}
+//		var time = new Date(connectedClients[this.id].socket._idleStart);
+//		if((new Date().getTime() - time) > User.idleTimer) {
+//			info += "<br/>Idle: " + time.toLocaleString();
+//		}
+		return info;
+	},
+	isIn: function(channel) {
+		return this.activeChannels.indexOf(channel) > -1 ? true : false;
 	}
+}
 
 // -----------------------------------------------------------------------------
 // CHAT
@@ -742,34 +958,27 @@ function acceptConnectionAsChat(request) {
 						// does it have arguments?
 						args = msg.split(" ");
 						var whatComm = (args[1] !== undefined) ? args[1] : false;
-						COMM.help(connection.broadcastId, whatComm);
+						COMM.help(userName, whatComm);
 						break;
 					case("msg"):
 						args = msg.split(" ");
 						args.shift(); // remove command
 						nick = args.shift();
 						msg = args.join(" ");
-						COMM.msg(connection.broadcastId, userName, nick, msg)
+						COMM.msg(userName, nick, msg)
 						break;
 					case("me"):
-						// is in channel?
-						// if(userList[userName].activeChannels.length !== 0) {
 						args = msg.split(" ");
 						args.shift(); // remove command
 						var action = args.join(" ");
 						COMM.me(userName, channel, action);
-						//						}
 						break;
 					case("nick"):
 						args = msg.split(" ");
 						args.shift();
 						nick = args.shift();
-						userName = COMM.nick(connection.broadcastId, userName, nick);
+						userName = COMM.nick(userName, nick);
 						break;
-					//					case("ignore"):
-					//						break;
-					//					case("unignore"):
-					//						break;
 					case("whois"):
 						args = msg.split(" ");
 						args.shift();
@@ -835,17 +1044,21 @@ function acceptConnectionAsChat(request) {
 					case("op"):
 						args = msg.split(" ");
 						args.shift();
-						var userToOp = args.shift();
-						COMM.op(userName, channel, userToOp);
+						var target = args.shift();
+						COMM.op(userName, channel, target);
 						break;
-					//					case("deop"):
-					//						break;
-					//					case("voice"):
-					//						break;
-					//					case("devoice"):
-					//						break;
-					//					case("kick"):
-					//						break;
+					case("deop"):
+						args = msg.split(" ");
+						args.shift();
+						var target = args.shift();
+						COMM.deop(userName, channel, target);
+						break;
+					case("kick"):
+						args = msg.split(" ");
+						args.shift();
+						var target = args.shift();
+						COMM.kick(userName, channel, target);
+						break;
 					//					case("ban"):
 					//						break;
 					//					case("unban"):
@@ -869,12 +1082,12 @@ function acceptConnectionAsChat(request) {
   
 	// Callback when client closes the connection
 	connection.on("close", function(reasonCode, description) {
-		var time, message, obj, json, i;
+		var time, user = userList[userName];
 		time = new Date();
 		console.log(time + " Peer " + connection.remoteAddress + " disconnected broadcastid = " + connection.broadcastId + ".");
-		message = "User " +  userName + " disconnected";
-		json = createJSON(message, "Server", "message");
-		clearUserFromAllChannels(userList[userName], userName);
+		//		message = "User " +  userName + " disconnected";
+		//		json = createJSON(message, "Server", "message");
+		clearUserFromAllChannels(user, userName);
 		delete userList[userName];
 		connectedClients[connection.broadcastId] = null;
 	//		broadcastMsg(json);
@@ -884,8 +1097,8 @@ function acceptConnectionAsChat(request) {
 }
 
 /**
- *	Create the JSON-objects that will be sent to the user
- */
+*	Create the JSON-objects that will be sent to the user
+*/
 function createJSON(message, sender, msgType, toChannel) {
 	var time = new Date();
 	var obj = {
@@ -902,22 +1115,22 @@ function createJSON(message, sender, msgType, toChannel) {
 	return json;
 }
 
-/**
- *	Broadcast JSON to clients
- */
-function broadcastMsg(json, channel) {
-	var i, users, user;
-	users = channelList[channel].users;
-	for(i in users) {
-		user = userList[users[i]];
-		connectedClients[user.id].sendUTF(json);
-	}
-}
+///**
+//*	Broadcast JSON to clients
+//*/
+//function broadcastMsg(json, channel) {
+//	var i, users, user;
+//	users = channelList[channel].users;
+//	for(i in users) {
+//		user = userList[users[i]];
+//		connectedClients[user.id].sendUTF(json);
+//	}
+//}
 
 /**
- * Create a callback to handle each connection request
- *
- */
+* Create a callback to handle each connection request
+*
+*/
 wsServer.on("request", function(request) {
 	var status = null;
 
@@ -946,9 +1159,9 @@ wsServer.on("request", function(request) {
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
 /**
- * Avoid injections
- *
- */
+* Avoid injections
+*
+*/
 function htmlEntities(str) {
 	return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
