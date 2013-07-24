@@ -687,24 +687,24 @@ COMM.deop.desc = "/deop [username]<br/>";
 /**
  *	KICK
  */
-COMM.kick = function(userName, channel, userToKick) {
-	var type, out, json, activeChannel = channelList[channel];
+COMM.kick = function(userName, channelName, userToKick) {
+	var out, type, json,
+	user = userList[userName], channel = channelList[channelName],
+	target = userList[userToKick];
 	// is user op?
-	if(activeChannel.ops.indexOf(userName) > -1) {
+	if(channel.isOp(userName)) {
 		// is target in channel?
-		if(activeChannel.users.indexOf(userToKick) > -1) {
+		if(channel.inChannel(userToKick)) {
 			// is target not op?
-			var index = activeChannel.ops.indexOf(userToKick);
-			if(index < 0) {
+			if(!channel.isOp(userToKick)) {
 				// remove target from channel listings
-				activeChannel.users.splice(index, 1);
+				channel.removeUser(userToKick);
 				type = "status";
 				out = userToKick + " was kicked from channel by " + userName;
 				// remove channel from target listings and interface
 				// TODO
-				var target = userList[userToKick];
-				target.leaveChannel(channel);
-			} else if(activeChannel.created.who == userToKick) {
+				target.leaveChannel(channelName);
+			} else if(channel.isOwner(userToKick)) {
 				type = "error";
 				out = "You can't kick the owner";
 			} else {
@@ -722,15 +722,14 @@ COMM.kick = function(userName, channel, userToKick) {
 	}
 	json = createJSON(out, "Server", type, channel);
 	if(type == "error") {
-		connectedClients[userList[userName].id].sendUTF(json);
+		user.sendMsg(json);
 	} else {
 		// broadcast to channel
 		// broadcast new userlist
-		broadcastMsg(json, channel);
-		var clientUserlist = createUserlist(channel);
+		channel.broadcastMsg(json);
 		type = "users";
-		json = createJSON(clientUserlist, "Server", type, channel)
-		broadcastMsg(json, channel);
+		json = createJSON(channel.createUserlist(), "Server", type, channel)
+		channel.broadcastMsg(json);
 	}
 }
 COMM.kick.desc = "/kick [username]<br/>";
