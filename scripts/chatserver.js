@@ -388,6 +388,8 @@ COMM.list.desc = "/list <br/>"
 
 /**
  *	NAMES
+ *	-> TODO:
+ *		Only prints to channel, can't see if not in it
  */
 COMM.names = function(userName, channelName) {
 	var out, type, json, user = userList[userName], channel = channelList[channelName];
@@ -474,44 +476,9 @@ COMM.join.desc = "/join (#)[channel]<br/>"
 /**
  *	PART
  */
-COMM.part = function(user, channel) {
-	var out, type, json;
+COMM.part = function(userName, channelName) {
+	var out, json, user = userList[userName], channel = channelList[channelName];
 	// does channel exist?
-	if(userList[user].activeChannels.indexOf(channel) > -1) {
-		// in channel
-		// remove user from channel listings
-		out = removeUserFromChannel(user, channel);
-		type = "status";
-	} else {
-		// not in that channel
-		type = "error";
-		out = "You're not in that channel";
-		channel = false;
-	}
-	json = createJSON(out, "Server", type, channel);
-	if(type === "status") {
-		broadcastMsg(json, channel);
-		json = JSON.stringify({
-			type: "toggle",
-			name: channel
-		});
-		connectedClients[userList[user].id].sendUTF(json);
-	} else {
-		connectedClients[userList[user].id].sendUTF(json);
-	}
-}
-COMM.part.desc = "/part<br/>"
-+ "<br/>" + "Used to leave channels"
-+ "<br/>" + "Needs to be written in the channel window of which you want to leave";
-
-/**
- *	LEAVE
- */
-COMM.leave = function(userName, channelName) {
-	var out, type, json,
-	user = userList[userName],
-	channel = channelList[channelName];
-	// user functions
 	if(user.leaveChannel(channelName)) {
 		if(channel.removeUser(userName)) {
 			// send userlist
@@ -539,6 +506,47 @@ COMM.leave = function(userName, channelName) {
 		json = createJSON(out, "Server", "error", channelName);
 		user.sendMsg(json);
 	}
+}
+COMM.part.desc = "/part<br/>"
++ "<br/>" + "Used to leave channels"
++ "<br/>" + "Needs to be written in the channel window of which you want to leave";
+
+/**
+ *	LEAVE
+ */
+COMM.leave = function(userName, channelName) {
+	COMM.part(userName, channelName);
+//	var out, json,
+//	user = userList[userName],
+//	channel = channelList[channelName];
+//	// user functions
+//	if(user.leaveChannel(channelName)) {
+//		if(channel.removeUser(userName)) {
+//			// send userlist
+//			json = createJSON(createUserlist(channelName), "Server", "users", channelName)
+//			channel.broadcastMsg(json);
+//			
+//			// to channel
+//			out = userName + " has left " + channelName;
+//			json = createJSON(out, "Server", "status", channelName);
+//			channel.broadcastMsg(json);
+//			
+//			// to user
+//			out = "You have left " + channelName;
+//			json = createJSON(out, "Server", "notice", channelName);
+//			user.sendMsg(json);
+//		} else {
+//			// was not in channel
+//			out = "You are not in that channel";
+//			json = createJSON(out, "Server", "error", channelName);
+//			user.sendMsg(json);
+//		}
+//	} else {
+//		// was not in channel
+//		out = "You are not in that channel";
+//		json = createJSON(out, "Server", "error", channelName);
+//		user.sendMsg(json);
+//	}
 }
 COMM.leave.desc = "/leave<br/>"
 + "<br/>" + "Used to leave channels"
