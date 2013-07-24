@@ -555,25 +555,23 @@ COMM.leave.desc = "/leave<br/>"
 /**
  *	TOPIC
  */
-COMM.topic = function(userName, channel, topic) {
+COMM.topic = function(userName, channelName, topic) {
+	var out, type, json, user = userList[userName], channel = channelList[channelName];
 	// if topic is set, set topic, else just print it to user	
-	var out, type, json;
-	//is user op?
 	if(topic !== undefined && topic !== "") {
-		var index = channelList[channel].ops.indexOf(userName);
-		if(index > -1) {
+		//is user op?
+		if(channel.isOp(userName)) {
 			// op
-			channelList[channel].setTopic(topic, userName);
+			channel.setTopic(topic, userName);
 			out = userName + " set topic to: " + topic; // broadcast
 			type = "status";
 			json = createJSON(out, "Server", type, channel);
-			broadcastMsg(json, channel);
+			channel.broadcastMsg(json);
 			// send new topic text to inferface
-			// TODO
 			out = topic;
 			type = "topic";
 			json = createJSON(out, userName, type, channel);
-			broadcastMsg(json, channel);
+			channel.broadcastMsg(json);
 		} else {
 			// not op
 			// can't do that -  no permission
@@ -581,20 +579,17 @@ COMM.topic = function(userName, channel, topic) {
 			type = "error";
 			// unicast
 			json = createJSON(out, "Server", type, channel);
-			connectedClients[userList[userName].id].sendUTF(json);
+			user.sendMsg(json);
 		}
 	} else {
 		// print it to user
-		var topic = channelList[channel].topic;
-		if(topic !== false) {
-			var time = new Date(topic.time);
-			out = topic.topicText + ", set by " + topic.who + " at " + time.toLocaleString();
-		} else {
+		out = channel.getTopic();
+		if(out == "") {
 			out = "Topic not set";
 		}
 		type = "status";
 		json = createJSON(out, "Server", type, channel);
-		connectedClients[userList[userName].id].sendUTF(json);
+		user.sendMsg(json);
 	}
 }
 COMM.topic.desc = "/topic (text)<br/>";
@@ -853,6 +848,9 @@ Channel.prototype = {
 		//		}
 		var time = new Date(this.topic.time);
 		return !this.topic ? this.topic.topicText + ", set by " + this.topic.who + " at " + time.toLocaleString() : "";
+	},
+	isOp: function(user) {
+		return this.ops.indexOf(user) > -1 ? true : false;
 	}
 }
 
@@ -899,10 +897,10 @@ User.prototype = {
 		for(var i in this.activeChannels) {
 			info += "#" + this.activeChannels[i] + " ";
 		}
-//		var time = new Date(connectedClients[this.id].socket._idleStart);
-//		if((new Date().getTime() - time) > User.idleTimer) {
-//			info += "<br/>Idle: " + time.toLocaleString();
-//		}
+		//		var time = new Date(connectedClients[this.id].socket._idleStart);
+		//		if((new Date().getTime() - time) > User.idleTimer) {
+		//			info += "<br/>Idle: " + time.toLocaleString();
+		//		}
 		return info;
 	},
 	isIn: function(channel) {
