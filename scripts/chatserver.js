@@ -599,8 +599,7 @@ COMM.topic.desc = "/topic (text)<br/>";
  */
 COMM.op = function(userName, channelName, userToOp) {
 	var out, type, json,
-	user = userList[userName], channel = channelList[channelName],
-	target = userList[userToOp];
+	user = userList[userName], channel = channelList[channelName];
 	// is username op?
 	if(channel.isOp(userName)) {
 		// user is op
@@ -625,13 +624,12 @@ COMM.op = function(userName, channelName, userToOp) {
 	}
 	json = createJSON(out, "Server", type, channel);
 	if(type == "error") {
-		connectedClients[userList[userName].id].sendUTF(json);
+		user.sendMsg(json);
 	} else {
-		broadcastMsg(json, channel);
-		var clientUserlist = createUserlist(channel);
+		channel.broadcastMsg(json);
 		type = "users";
-		json = createJSON(clientUserlist, "Server", type, channel)
-		broadcastMsg(json, channel);
+		json = createJSON(channel.createUserlist(), "Server", type, channel)
+		channel.broadcastMsg(json);
 	}
 }
 COMM.op.desc = "/op [username]<br/>";
