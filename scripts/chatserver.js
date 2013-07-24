@@ -637,25 +637,26 @@ COMM.op.desc = "/op [username]<br/>";
 /**
  *	DEOP
  */
-COMM.deop = function(userName, channel, userToDeop) {
+COMM.deop = function(userName, channelName, userToDeop) {
 	var out, type, json,
-	activeChannel = channelList[channel];
+	user = userList[userName], channel = channelList[channelName];
 
 	// is user op?
-	if(activeChannel.ops.indexOf(userName) > -1) {
+	if(channel.isOp(userName)) {
 		// is target in channel?
-		if(activeChannel.users.indexOf(userToDeop) > -1) {
+		if(channel.inChannel(userName)) {
 			// is target op?
-			var index = activeChannel.ops.indexOf(userToDeop)
-			// is target owner? don't allow deop of owner
-			if(index > -1 && activeChannel.created.who != userToDeop) {
-				// remove target
-				activeChannel.ops.splice(index, 1);
-				type = "status";
-				out = userToDeop + " was deoped by " + userName;
-			} else if(activeChannel.created.who == userToDeop) {
-				type = "error";
-				out = "You can't deop the owner";
+			if(channel.isOp(userToDeop)) {
+				// is target owner? don't allow deop of owner
+				if(!channel.isOwner(userToDeop)) {
+					// remove target
+					channel.removeOp(userToDeop);
+					type = "status";
+					out = userToDeop + " was deoped by " + userName;
+				} else {
+					type = "error";
+					out = "You can't deop the owner";
+				}
 			} else {
 				type = "error";
 				out = "User doesn't have op";
@@ -671,15 +672,14 @@ COMM.deop = function(userName, channel, userToDeop) {
 	}
 	json = createJSON(out, "Server", type, channel);
 	if(type == "error") {
-		connectedClients[userList[userName].id].sendUTF(json);
+		user.sendMsg(json);
 	} else {
 		// broadcast to channel
 		// broadcast new userlist
-		broadcastMsg(json, channel);
-		var clientUserlist = createUserlist(channel);
+		channel.broadcastMsg(json);
 		type = "users";
-		json = createJSON(clientUserlist, "Server", type, channel)
-		broadcastMsg(json, channel);
+		json = createJSON(channel.createUserlist(), "Server", type, channel)
+		channel.broadcastMsg(json);
 	}
 }
 COMM.deop.desc = "/deop [username]<br/>";
@@ -856,6 +856,18 @@ Channel.prototype = {
 	},
 	addOp: function(user) {
 		this.ops.push(user);
+	},
+	removeOp: function(user) {
+		var index = this.ops.indexOf(user);
+		if(index > -1) {
+			this.users.splice(index, 1);
+			return true;
+		} else {
+			return false;
+		}
+	},
+	isOwner: function(user) {
+		return user == this.created.who ? true : false;
 	}
 }
 
