@@ -597,11 +597,12 @@ COMM.topic.desc = "/topic (text)<br/>";
 /**
  *	OP
  */
-COMM.op = function(userName, channel, userToOp) {
+COMM.op = function(userName, channelName, userToOp) {
 	var out, type, json,
-	activeChannel = channelList[channel];
+	user = userList[userName], channel = channelList[channelName],
+	target = userList[userToOp];
 	// is username op?
-	if(activeChannel.ops.indexOf(userName) > -1) {
+	if(channel.isOp(userName)) {
 		// user is op
 		// is target in channel?
 		if(activeChannel.users.indexOf(userToOp) > -1) {
@@ -851,6 +852,9 @@ Channel.prototype = {
 	},
 	isOp: function(user) {
 		return this.ops.indexOf(user) > -1 ? true : false;
+	},
+	inChannel: function(user) {
+		return this.users.indexOf(user) > -1 ? true : false;
 	}
 }
 
