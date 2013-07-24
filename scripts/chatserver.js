@@ -605,10 +605,10 @@ COMM.op = function(userName, channelName, userToOp) {
 	if(channel.isOp(userName)) {
 		// user is op
 		// is target in channel?
-		if(activeChannel.users.indexOf(userToOp) > -1) {
+		if(channel.inChannel(userToOp)) {
 			// is target already op?
-			if(activeChannel.ops.indexOf(userToOp) == -1) {
-				activeChannel.ops.push(userToOp);
+			if(channel.isOp(userToOp)) {
+				channel.addOp(userToOp);
 				type = "status";
 				out = userToOp + " has been oped by " + userName;
 			} else {
@@ -855,6 +855,9 @@ Channel.prototype = {
 	},
 	inChannel: function(user) {
 		return this.users.indexOf(user) > -1 ? true : false;
+	},
+	addOp: function(user) {
+		this.ops.push(user);
 	}
 }
 
