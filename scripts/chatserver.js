@@ -516,13 +516,13 @@ COMM.op = function(userName, channelName, userToOp) {
 		type = "error";
 		out = "You don't have permission to do that";
 	}
-	json = createJSON(out, "Server", type, channel);
+	json = createJSON(out, "Server", type, channelName);
 	if(type == "error") {
 		user.sendMsg(json);
 	} else {
 		channel.broadcastMsg(json);
 		type = "users";
-		json = createJSON(channel.createUserlist(), "Server", type, channel)
+		json = createJSON(channel.createUserlist(), "Server", type, channelName);
 		channel.broadcastMsg(json);
 	}
 }
