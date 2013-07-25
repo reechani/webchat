@@ -70,19 +70,25 @@ function rand(min, max) {
 /**
  *	Clears user from all channel listings, used on quit/disconnect
  */
-function clearUserFromAllChannels(user, userName) {
-	var i, json, out, channels = user.getChannels();
+function clearUserFromAllChannels(userName) {
+	var i, json, out, user = userList[userName];
+	var channels = user.getChannels();
 	for(i in channels) {
-		if(user.leaveChannel(channels[i])) {
-			var channel = channelList[channels[i]];
+		var channelName = channels[i];
+		var channel = channelList[channelName];
+		if(user.leaveChannel(channelName)) {
 			if(channel.removeUser(userName)) {
+				console.log("User removed from channel");
+				console.log(channel);
 				// send userlist
-				json = createJSON(channel.createUserlist(), "Server", "users", channels[i])
+				json = createJSON(channel.createUserlist(), "Server", "users", channelName)
+				console.log(json);
 				channel.broadcastMsg(json);
 				
 				// to channel
 				out = userName + " has quit";
-				json = createJSON(out, "Server", "status", channels[i]);
+				json = createJSON(out, "Server", "status", channelName);
+				console.log(json);
 				channel.broadcastMsg(json);
 			}
 		}
@@ -593,11 +599,10 @@ COMM.kick = function(userName, channelName, userToKick) {
 			if(!channel.isOp(userToKick)) {
 				// remove target from channel listings
 				channel.removeUser(userToKick);
+				// remove channel from target listings and interface
+				target.leaveChannel(channelName);
 				type = "status";
 				out = userToKick + " was kicked from channel by " + userName;
-				// remove channel from target listings and interface
-				// TODO
-				target.leaveChannel(channelName);
 			} else if(channel.isOwner(userToKick)) {
 				type = "error";
 				out = "You can't kick the owner";
@@ -624,6 +629,9 @@ COMM.kick = function(userName, channelName, userToKick) {
 		type = "users";
 		json = createJSON(channel.createUserlist(), "Server", type, channelName)
 		channel.broadcastMsg(json);
+		out = "You where kicked from #" + channelName;
+		json = createJSON(out, "Server", "notice", false);
+		target.sendMsg(json);
 	}
 }
 COMM.kick.desc = "/kick [username]<br/>";
@@ -1006,10 +1014,9 @@ function acceptConnectionAsChat(request) {
   
 	// Callback when client closes the connection
 	connection.on("close", function(reasonCode, description) {
-		var time, user = userList[userName];
-		time = new Date();
+		var time = new Date();
 		console.log(time + " Peer " + connection.remoteAddress + " disconnected broadcastid = " + connection.broadcastId + ".");
-		clearUserFromAllChannels(user, userName);
+		clearUserFromAllChannels(userName);
 		delete userList[userName];
 		connectedClients[connection.broadcastId] = null;
 	});
