@@ -500,7 +500,7 @@ COMM.op = function(userName, channelName, userToOp) {
 		// is target in channel?
 		if(channel.inChannel(userToOp)) {
 			// is target already op?
-			if(channel.isOp(userToOp)) {
+			if(!channel.isOp(userToOp)) {
 				channel.addOp(userToOp);
 				type = "status";
 				out = userToOp + " has been oped by " + userName;
