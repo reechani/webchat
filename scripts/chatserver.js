@@ -614,7 +614,7 @@ COMM.kick = function(userName, channelName, userToKick) {
 		type = "error";
 		out = "You don't have permission to do that";
 	}
-	json = createJSON(out, "Server", type, channel);
+	json = createJSON(out, "Server", type, channelName);
 	if(type == "error") {
 		user.sendMsg(json);
 	} else {
@@ -622,7 +622,7 @@ COMM.kick = function(userName, channelName, userToKick) {
 		// broadcast new userlist
 		channel.broadcastMsg(json);
 		type = "users";
-		json = createJSON(channel.createUserlist(), "Server", type, channel)
+		json = createJSON(channel.createUserlist(), "Server", type, channelName)
 		channel.broadcastMsg(json);
 	}
 }
