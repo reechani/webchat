@@ -19,7 +19,6 @@ var http = require("http");
 
 /**
  * Create a http server with a callback for each request
- * 
  */
 var httpServer = http.createServer(function(request, response) {
 	console.log((new Date()) + " Received request for " + request.url);
@@ -42,7 +41,6 @@ wsServer = new WebSocketServer({
 
 /**
  * Always check and explicitly allow the origin
- *
  */
 function originIsAllowed(origin) {
 	if(origin === "http://www.student.bth.se" || origin === "http://localhost") {
@@ -53,7 +51,6 @@ function originIsAllowed(origin) {
 
 /**
  * Check if the user is online (among userList)
- *
  */
 function isNickUsed(nick) {
 	var valid = true;
@@ -65,7 +62,6 @@ function isNickUsed(nick) {
 
 /**
  * Randomization function for set interval
- * 
  */
 function rand(min, max) {
 	return Math.floor((Math.random()*max)+min);
@@ -73,7 +69,6 @@ function rand(min, max) {
 
 /**
  *	Clears user from all channel listings, used on quit/disconnect
- *	
  */
 function clearUserFromAllChannels(user, userName) {
 	var i, json, out, channels = user.getChannels();
@@ -93,43 +88,6 @@ function clearUserFromAllChannels(user, userName) {
 		}
 	}
 }
-
-//function removeUserFromChannel(userName, channel) {
-//	var users = channelList[channel].users;
-//	var index = users.indexOf(userName);
-//	users.splice(index, 1);
-//	var channels = userList[userName].activeChannels;
-//	index = channels.indexOf(channel);
-//	channels.splice(index, 1);
-//	var json = createJSON(users, "Server", "users", channel);
-//	broadcastMsg(json, channel);
-//	return userName + " has left";
-//}
-
-/**
- *	Create a userlist for client with ops marked
- *	TODO: move to channel prototype
- */
-//function createUserlist(channel) {
-//	var i,
-//	index,
-//	users = channelList[channel].users,
-//	ops = channelList[channel].ops,
-//	regular = [],
-//	opUsers = [],
-//	clientUserlist = [];
-//	for(i in users) {
-//		index = ops.indexOf(users[i]);
-//		if(index > -1) {
-//			opUsers.push("@" + users[i]);
-//		} else {
-//			regular.push(users[i]);
-//		}
-//	}
-//	clientUserlist = opUsers.concat(regular);
-//	return clientUserlist;
-//	
-//}
 
 // -----------------------------------------------------------------------------
 // COMMANDS
@@ -231,13 +189,6 @@ COMM.msg.desc = "/msg [nick] [message]<br/>"
  */
 COMM.me = function(sender, channelName, msg) {
 	var out, json, type, user = userList[sender], channel = channelList[channelName];
-	//	if (channelName == "log") {
-	//		type = "error";
-	//		out = "Must write command in channel window";
-	//	} else {
-	//		type = "action";
-	//		out = sender + " " + msg;
-	//	}
 	if(channel !== undefined) {
 		if(msg === undefined) {
 			msg = "";
@@ -252,11 +203,9 @@ COMM.me = function(sender, channelName, msg) {
 	json = createJSON(out, "Server", type, channelName);
 	if(type == "error") {
 		user.sendMsg(json);
-	//		connectedClients[userList[sender].id].sendUTF(json);
 	} else {
 		// broadcast to channel
 		channel.broadcastMsg(json);
-	//		broadcastMsg(json, channel);
 	}
 }
 COMM.me.desc = "/me (action-text)<br/>"
@@ -312,19 +261,6 @@ COMM.nick = function(sender, newNick) {
 				json = createJSON(out, sender, type, channels[i]);
 				channel.broadcastMsg(json);
 			}
-			//			for(i=0; i<user.activeChannels.length; i++) {
-			//				index = channelList[user.activeChannels[i]].users.indexOf(oldNick);
-			//				channelList[user.activeChannels[i]].users[index] = newNick;
-			//				// send nickchange to each channel
-			//				out = sender + " is now known as " + newNick;
-			//				json = createJSON(out, oldNick, type, user.activeChannels[i])
-			//				broadcastMsg(json, user.activeChannels[i]);
-			//							
-			//				// send updated userlist
-			//				type = "users";
-			//				json = createJSON(channelList[user.activeChannels[i]].users, "Server", type, user.activeChannels[i]);
-			//				broadcastMsg(json, user.activeChannels[i]);
-			//				}
 			// create msg for user
 			out = "You are now known as " + newNick;
 			break;
@@ -349,11 +285,6 @@ COMM.whois = function(sender, nick) {
 		type = "error";
 		out = "Nickname can not be empty";
 	}
-	//	out = nick + "@" + connectedClients[userList[nick].id].remoteAddress + "<br/>";
-	//	out += "Channels: ";
-	//	for(var i in userList[nick].activeChannels) {
-	//		out += "#" + userList[nick].activeChannels[i] + " ";
-	//	}
 	//	out += "<br/>Idle: " + connectedClients[userList[nick].id].socket._idleStart;
 	
 	json = createJSON(out, "Server", type, false);
@@ -399,11 +330,6 @@ COMM.names = function(userName, channelName) {
 	
 	if(channelName !== "log" && channel !== undefined) {
 		out = channel.getNames();
-		//		out = "Users currently in " + channel + ":<br/>";
-		//	
-		//		for(var user in channelList[channel].users) {
-		//			out += "[" + channelList[channel].users[user] + "]";
-		//		}
 		type = "status";
 	} else {
 		type = "error";
@@ -429,20 +355,16 @@ COMM.join = function(userName, channelName) {
 		}
 		// check: user not in channel
 		if(!user.isIn(channelName)) {
-			//		if(userList[user].activeChannels.indexOf(channel) === -1) {
 			// tell client to open window
 			json = JSON.stringify({
 				type: "toggle",
 				name: channelName
 			});
-			//			connectedClients[userList[user].id].sendUTF(json);
 			user.sendMsg(json);
 			
 			// add user
 			channel.addUser(userName);
-			//			channelList[channel].users.push(user);
 			user.addChannel(channelName);
-			//			userList[user].activeChannels.push(channel);
 			
 			// send topic and channel creation info back to user
 			type = "status";
@@ -519,37 +441,6 @@ COMM.part.desc = "/part<br/>"
  */
 COMM.leave = function(userName, channelName) {
 	COMM.part(userName, channelName);
-//	var out, json,
-//	user = userList[userName],
-//	channel = channelList[channelName];
-//	// user functions
-//	if(user.leaveChannel(channelName)) {
-//		if(channel.removeUser(userName)) {
-//			// send userlist
-//			json = createJSON(createUserlist(channelName), "Server", "users", channelName)
-//			channel.broadcastMsg(json);
-//			
-//			// to channel
-//			out = userName + " has left " + channelName;
-//			json = createJSON(out, "Server", "status", channelName);
-//			channel.broadcastMsg(json);
-//			
-//			// to user
-//			out = "You have left " + channelName;
-//			json = createJSON(out, "Server", "notice", channelName);
-//			user.sendMsg(json);
-//		} else {
-//			// was not in channel
-//			out = "You are not in that channel";
-//			json = createJSON(out, "Server", "error", channelName);
-//			user.sendMsg(json);
-//		}
-//	} else {
-//		// was not in channel
-//		out = "You are not in that channel";
-//		json = createJSON(out, "Server", "error", channelName);
-//		user.sendMsg(json);
-//	}
 }
 COMM.leave.desc = "/leave<br/>"
 + "<br/>" + "Used to leave channels"
@@ -968,13 +859,13 @@ function acceptConnectionAsChat(request) {
 			}
 			userName = nick;
 			
-			out = "Your are known as " + nick;
-			json = createJSON(out, "Server", "notice", false);
-			connectedClients[connection.broadcastId].sendUTF(json);
-			
 			console.log(time + " User is known as: " + userName);
 			// add to userlist
 			userList[userName] = new User(connection);
+			
+			out = "Your are known as " + nick;
+			json = createJSON(out, "Server", "notice", false);
+			userList[userName].sendMsg(json);
 		} else {
 			channel = clientMsg.window;
 			msg = htmlEntities(clientMsg.msg);
@@ -1108,7 +999,7 @@ function acceptConnectionAsChat(request) {
 			
 				// public message, do broadcast
 				json = createJSON(msg, userName, "message", channel);
-				broadcastMsg(json, channel);
+				channelList[channel].broadcastMsg(json);
 			}
 		}
 	});
@@ -1118,12 +1009,9 @@ function acceptConnectionAsChat(request) {
 		var time, user = userList[userName];
 		time = new Date();
 		console.log(time + " Peer " + connection.remoteAddress + " disconnected broadcastid = " + connection.broadcastId + ".");
-		//		message = "User " +  userName + " disconnected";
-		//		json = createJSON(message, "Server", "message");
 		clearUserFromAllChannels(user, userName);
 		delete userList[userName];
 		connectedClients[connection.broadcastId] = null;
-	//		broadcastMsg(json);
 	});
 
 	return true;
@@ -1148,21 +1036,8 @@ function createJSON(message, sender, msgType, toChannel) {
 	return json;
 }
 
-///**
-//*	Broadcast JSON to clients
-//*/
-//function broadcastMsg(json, channel) {
-//	var i, users, user;
-//	users = channelList[channel].users;
-//	for(i in users) {
-//		user = userList[users[i]];
-//		connectedClients[user.id].sendUTF(json);
-//	}
-//}
-
 /**
-* Create a callback to handle each connection request
-*
+*	Create a callback to handle each connection request
 */
 wsServer.on("request", function(request) {
 	var status = null;
