@@ -284,12 +284,17 @@ COMM.nick.desc = "/nick [newNick]<br/>"
  */
 COMM.whois = function(sender, nick) {
 	var out, type, json, user = userList[sender], target = userList[nick];
-	if(target !== undefined) {
-		type = "notice";
-		out = target.getInfo(nick);		
-	} else {
+	if(nick === undefined || nick === "") {
 		type = "error";
 		out = "Nickname can not be empty";
+	} else {
+		if(target !== undefined) {
+			type = "notice";
+			out = target.getInfo(nick);
+		} else {
+			type = "error";
+			out = "User is not online";
+		}
 	}
 	//	out += "<br/>Idle: " + connectedClients[userList[nick].id].socket._idleStart;
 	
@@ -331,12 +336,16 @@ COMM.list.desc = "/list <br/>"
  *	-> TODO:
  *		Only prints to channel, can't see if not in it
  */
-COMM.names = function(userName, channelName) {
+COMM.names = function(userName, channelName, toLog) {
 	var out, type, json, user = userList[userName], channel = channelList[channelName];
 	
 	if(channelName !== "log" && channel !== undefined) {
 		out = channel.getNames();
-		type = "status";
+		if(toLog === true) {
+			type = "notice";
+		} else {
+			type = "status";
+		}
 	} else {
 		type = "error";
 		out = "Invalid channel, cannot list users for " + channelName;
@@ -354,7 +363,7 @@ COMM.names.desc = "/names (channel)<br/>"
 COMM.join = function(userName, channelName) {
 	var out, type, json, user = userList[userName], channel = channelList[channelName];
 	// is string empty?
-	if(channelName !== undefined && channelName !== "" ) {
+	if(channelName !== undefined && channelName !== "") {
 		// does channel exist?
 		if(channel === undefined) {
 			channel = channelList[channelName] = new Channel(userName);
@@ -397,6 +406,11 @@ COMM.join = function(userName, channelName) {
 			json = createJSON(out, "Server", type, channelName);
 			user.sendMsg(json);
 		}
+	} else {
+		out = "Parameter missing";
+		type = "error";
+		json = createJSON(out, "Server", type, channelName);
+		user.sendMsg(json);
 	}
 }
 COMM.join.desc = "/join (#)[channel]<br/>"
@@ -937,7 +951,7 @@ function acceptConnectionAsChat(request) {
 							COMM.names(userName, channel);
 						} else if(listChannel !== channel) {
 							listChannel = listChannel.replace("#", "");
-							COMM.names(userName, listChannel);
+							COMM.names(userName, listChannel, true);
 						}
 						break;
 					case("join"):
