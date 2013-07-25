@@ -239,6 +239,9 @@ COMM.me = function(sender, channelName, msg) {
 	//		out = sender + " " + msg;
 	//	}
 	if(channel !== undefined) {
+		if(msg === undefined) {
+			msg = "";
+		}
 		out = sender + " " + msg;
 		type = "action";
 	} else {
@@ -246,13 +249,13 @@ COMM.me = function(sender, channelName, msg) {
 		out = "Must write command in channel window";
 	}
 
-	json = createJSON(out, "Server", type, channel);
+	json = createJSON(out, "Server", type, channelName);
 	if(type == "error") {
 		user.sendMsg(json);
 	//		connectedClients[userList[sender].id].sendUTF(json);
 	} else {
 		// broadcast to channel
-		channel.sendMsg(json);
+		channel.broadcastMsg(json);
 	//		broadcastMsg(json, channel);
 	}
 }
@@ -741,12 +744,12 @@ COMM.ban = function(userName, channelName, userToBan) {
 	var out, type, json,
 	user = userList[userName], channel = channelList[channelName],
 	target = userList[userToKick];
-	// is user op? n -> e, no perm
-	// is target op? y -> e, deop first
-	// sidenote: does not need to be in channel, or online
-	// is already banned? y -> e, already banned
-	// add ban
-	// notify user, channel and target, if online
+// is user op? n -> e, no perm
+// is target op? y -> e, deop first
+// sidenote: does not need to be in channel, or online
+// is already banned? y -> e, already banned
+// add ban
+// notify user, channel and target, if online
 }
 COMM.ban.desc = "";
 
