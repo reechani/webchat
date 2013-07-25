@@ -538,7 +538,7 @@ COMM.deop = function(userName, channelName, userToDeop) {
 	// is user op?
 	if(channel.isOp(userName)) {
 		// is target in channel?
-		if(channel.inChannel(userName)) {
+		if(channel.inChannel(userToDeop)) {
 			// is target op?
 			if(channel.isOp(userToDeop)) {
 				// is target owner? don't allow deop of owner
@@ -564,7 +564,7 @@ COMM.deop = function(userName, channelName, userToDeop) {
 		type = "error";
 		out = "You don't have permission to do that";
 	}
-	json = createJSON(out, "Server", type, channel);
+	json = createJSON(out, "Server", type, channelName);
 	if(type == "error") {
 		user.sendMsg(json);
 	} else {
@@ -572,7 +572,7 @@ COMM.deop = function(userName, channelName, userToDeop) {
 		// broadcast new userlist
 		channel.broadcastMsg(json);
 		type = "users";
-		json = createJSON(channel.createUserlist(), "Server", type, channel)
+		json = createJSON(channel.createUserlist(), "Server", type, channelName)
 		channel.broadcastMsg(json);
 	}
 }
@@ -761,7 +761,7 @@ Channel.prototype = {
 	removeOp: function(user) {
 		var index = this.ops.indexOf(user);
 		if(index > -1) {
-			this.users.splice(index, 1);
+			this.ops.splice(index, 1);
 			return true;
 		} else {
 			return false;
