@@ -482,7 +482,7 @@ COMM.part = function(userName, channelName) {
 	if(user.leaveChannel(channelName)) {
 		if(channel.removeUser(userName)) {
 			// send userlist
-			json = createJSON(createUserlist(channelName), "Server", "users", channelName)
+			json = createJSON(channel.createUserlist(), "Server", "users", channelName)
 			channel.broadcastMsg(json);
 			
 			// to channel
@@ -737,9 +737,17 @@ COMM.kick.desc = "/kick [username]<br/>";
 /**
  *	BAN
  */
-COMM.ban = function() {
-	
-	}
+COMM.ban = function(userName, channelName, userToBan) {
+	var out, type, json,
+	user = userList[userName], channel = channelList[channelName],
+	target = userList[userToKick];
+	// is user op? n -> e, no perm
+	// is target op? y -> e, deop first
+	// sidenote: does not need to be in channel, or online
+	// is already banned? y -> e, already banned
+	// add ban
+	// notify user, channel and target, if online
+}
 COMM.ban.desc = "";
 
 /**
@@ -1133,7 +1141,7 @@ function createJSON(message, sender, msgType, toChannel) {
 		type: msgType,
 		data: obj
 	});
-	console.log(json);
+	//console.log(json);
 	return json;
 }
 
