@@ -378,7 +378,7 @@ COMM.join = function(userName, channelName) {
 			user.sendMsg(json);
 			// topic
 			type = "topic";
-			json = createJSON(channel.getTopic(), "Server", type, channelName);
+			json = createJSON(channel.getTopicText(), "Server", type, channelName);
 			user.sendMsg(json);
 			
 			// send userlist back to user
@@ -465,12 +465,12 @@ COMM.topic = function(userName, channelName, topic) {
 			channel.setTopic(topic, userName);
 			out = userName + " set topic to: " + topic; // broadcast
 			type = "status";
-			json = createJSON(out, "Server", type, channel);
+			json = createJSON(out, "Server", type, channelName);
 			channel.broadcastMsg(json);
 			// send new topic text to inferface
 			out = topic;
 			type = "topic";
-			json = createJSON(out, userName, type, channel);
+			json = createJSON(out, userName, type, channelName);
 			channel.broadcastMsg(json);
 		} else {
 			// not op
@@ -478,17 +478,21 @@ COMM.topic = function(userName, channelName, topic) {
 			out = "You don't have permission to change topic";
 			type = "error";
 			// unicast
-			json = createJSON(out, "Server", type, channel);
+			json = createJSON(out, "Server", type, channelName);
 			user.sendMsg(json);
 		}
+	} else if(channel === undefined) {
+		out = "Can't get topic for " + channelName;
+		json = createJSON(out, "Server", "error", channelName);
+		user.sendMsg(json);
 	} else {
 		// print it to user
 		out = channel.getTopic();
-		if(out == "") {
+		if(out === false) {
 			out = "Topic not set";
 		}
 		type = "status";
-		json = createJSON(out, "Server", type, channel);
+		json = createJSON(out, "Server", type, channelName);
 		user.sendMsg(json);
 	}
 }
@@ -755,7 +759,10 @@ Channel.prototype = {
 		//			time: (new Date()).getTime()
 		//		}
 		var time = new Date(this.topic.time);
-		return !this.topic ? this.topic.topicText + ", set by " + this.topic.who + " at " + time.toLocaleString() : "";
+		return this.topic !== false ? this.topic.topicText + ", set by " + this.topic.who + " at " + time.toLocaleString() : false;
+	},
+	getTopicText: function() {
+		return this.topic !== false ? this.topic.topicText : "";
 	},
 	isOp: function(user) {
 		return this.ops.indexOf(user) > -1 ? true : false;
