@@ -71,8 +71,9 @@ function rand(min, max) {
  *	Clears user from all channel listings, used on quit/disconnect
  */
 function clearUserFromAllChannels(userName) {
-	var i, json, out, user = userList[userName];
+	var i, json, out, target, user = userList[userName];
 	var channels = user.getChannels();
+	var privs = user.getPrivs();
 	for(i in channels) {
 		var channelName = channels[i];
 		var channel = channelList[channelName];
@@ -93,6 +94,31 @@ function clearUserFromAllChannels(userName) {
 			}
 		}
 	}
+	// clear from all privs
+	for(i in privs) {
+		target = userList[privs[i]];
+		if(target !== undefined) {
+			channelName = userName + ":private";
+			out = userName + " has quit";
+			json = createJSON(out, userName, "status", channelName);
+			target.sendMsg(json);
+		}
+	}
+}
+
+/**
+ *	Creates and sends private window message, /me or text
+ */
+function sendPrivate(sender, reciever, msg, type) {
+	var json, target = userList[reciever], user = userList[sender];
+	// add to privs
+	if(user.isInPriv(reciever) == false) {
+		user.addPriv(reciever);
+	}
+	json = createJSON(msg, sender, type, sender+":private");
+	target.sendMsg(json);
+	json = createJSON(msg, sender, type, reciever+":private");
+	user.sendMsg(json);
 }
 
 // -----------------------------------------------------------------------------
@@ -168,23 +194,12 @@ COMM.msg = function(sender, nick, msg) {
 	switch(type) {
 		case("error"):
 			json = createJSON(out, "Server", type, false);
+			user.sendMsg(json);
 			break;
 		case("private"):
-			json = createJSON(out, sender, type, sender);
-			target.sendMsg(json);
-			json = createJSON(out, sender, type, nick);
+			sendPrivate(sender, nick, out, type);
 			break;
 	}
-	//	// create msg (time, msg, sender: to/from, new?)
-	//	json = createJSON(out, sender, type, nick);
-	//	// sends to user it came from and to user with nick
-	//	// to user it came from: sender: sender, channel: nick
-	user.sendMsg(json);
-//	if(type === "private") {
-//		// to user it is going to: sender: sender, channel: sender
-//		json = createJSON(out, sender, type, sender);
-//		target.sendMsg(json);
-//	}
 }
 COMM.msg.desc = "/msg [nick] [message]<br/>"
 + "<br/>" + "Send a private message to another user"
@@ -193,9 +208,9 @@ COMM.msg.desc = "/msg [nick] [message]<br/>"
 /**
  *	ME
  */
-COMM.me = function(sender, channelName, msg) {
+COMM.me = function(sender, channelName, msg, isPriv) {
 	var out, json, type, user = userList[sender], channel = channelList[channelName];
-	if(channel !== undefined) {
+	if(channel !== undefined || isPriv === true) {
 		if(msg === undefined) {
 			msg = "";
 		}
@@ -210,8 +225,12 @@ COMM.me = function(sender, channelName, msg) {
 	if(type == "error") {
 		user.sendMsg(json);
 	} else {
-		// broadcast to channel
-		channel.broadcastMsg(json);
+		if(isPriv === true) {
+			sendPrivate(sender, channelName, out, type);
+		} else {
+			// broadcast to channel
+			channel.broadcastMsg(json);
+		}
 	}
 }
 COMM.me.desc = "/me (action-text)<br/>"
@@ -266,6 +285,14 @@ COMM.nick = function(sender, newNick) {
 				// send message of nickchange to channel
 				json = createJSON(out, sender, type, channels[i]);
 				channel.broadcastMsg(json);
+			}
+			var privs = user.getPrivs();
+			for(i in privs) {
+				var target = userList[privs[i]];
+				if(target !== undefined) {
+					json = createJSON("", nick, "update", sender + ":private");
+					target.sendMsg(json);
+				}
 			}
 			// create msg for user
 			out = "You are now known as " + newNick;
@@ -333,8 +360,6 @@ COMM.list.desc = "/list <br/>"
 
 /**
  *	NAMES
- *	-> TODO:
- *		Only prints to channel, can't see if not in it
  */
 COMM.names = function(userName, channelName, toLog) {
 	var out, type, json, user = userList[userName], channel = channelList[channelName];
@@ -519,26 +544,31 @@ COMM.op = function(userName, channelName, userToOp) {
 	var out, type, json,
 	user = userList[userName], channel = channelList[channelName];
 	// is username op?
-	if(channel.isOp(userName)) {
-		// user is op
-		// is target in channel?
-		if(channel.inChannel(userToOp)) {
-			// is target already op?
-			if(!channel.isOp(userToOp)) {
-				channel.addOp(userToOp);
-				type = "status";
-				out = userToOp + " has been oped by " + userName;
+	if(userToOp !== undefined || userToOp !== "") {
+		if(channel.isOp(userName)) {
+			// user is op
+			// is target in channel?
+			if(channel.inChannel(userToOp)) {
+				// is target already op?
+				if(!channel.isOp(userToOp)) {
+					channel.addOp(userToOp);
+					type = "status";
+					out = userToOp + " has been oped by " + userName;
+				} else {
+					type = "error";
+					out = "User is already op";
+				}
 			} else {
 				type = "error";
-				out = "User is already op";
+				out = "User is not in channel";
 			}
 		} else {
 			type = "error";
-			out = "User is not in channel";
+			out = "You don't have permission to do that";
 		}
 	} else {
 		type = "error";
-		out = "You don't have permission to do that";
+		out = "Paramater missing";
 	}
 	json = createJSON(out, "Server", type, channelName);
 	if(type == "error") {
@@ -558,11 +588,10 @@ COMM.op.desc = "/op [username]<br/>";
 COMM.deop = function(userName, channelName, userToDeop) {
 	var out, type, json,
 	user = userList[userName], channel = channelList[channelName];
-
-	// is user op?
-	if(channel.isOp(userName)) {
-		// is target in channel?
-		if(channel.inChannel(userToDeop)) {
+	
+	if(userToDeop !== undefined || userToDeop !== "") {
+		// is user op?
+		if(channel.isOp(userName)) {
 			// is target op?
 			if(channel.isOp(userToDeop)) {
 				// is target owner? don't allow deop of owner
@@ -580,13 +609,13 @@ COMM.deop = function(userName, channelName, userToDeop) {
 				out = "User doesn't have op";
 			}
 		} else {
+			// user is not op
 			type = "error";
-			out = "User is not in channel";
+			out = "You don't have permission to do that";
 		}
 	} else {
-		// user is not op
 		type = "error";
-		out = "You don't have permission to do that";
+		out = "Paramater missing";
 	}
 	json = createJSON(out, "Server", type, channelName);
 	if(type == "error") {
@@ -609,33 +638,39 @@ COMM.kick = function(userName, channelName, userToKick) {
 	var out, type, json,
 	user = userList[userName], channel = channelList[channelName],
 	target = userList[userToKick];
-	// is user op?
-	if(channel.isOp(userName)) {
-		// is target in channel?
-		if(channel.inChannel(userToKick)) {
-			// is target not op?
-			if(!channel.isOp(userToKick)) {
-				// remove target from channel listings
-				channel.removeUser(userToKick);
-				// remove channel from target listings and interface
-				target.leaveChannel(channelName);
-				type = "status";
-				out = userToKick + " was kicked from channel by " + userName;
-			} else if(channel.isOwner(userToKick)) {
-				type = "error";
-				out = "You can't kick the owner";
+	
+	if(userToKick !== undefined || userToKick !== "") {
+		// is user op?
+		if(channel.isOp(userName)) {
+			// is target in channel?
+			if(channel.inChannel(userToKick)) {
+				// is target not op?
+				if(!channel.isOp(userToKick)) {
+					// remove target from channel listings
+					channel.removeUser(userToKick);
+					// remove channel from target listings and interface
+					target.leaveChannel(channelName);
+					type = "status";
+					out = userToKick + " was kicked from channel by " + userName;
+				} else if(channel.isOwner(userToKick)) {
+					type = "error";
+					out = "You can't kick the owner";
+				} else {
+					type = "error";
+					out = "User has op, deop before kicking";
+				}
 			} else {
 				type = "error";
-				out = "User has op, deop before kicking";
+				out = "User is not in channel";
 			}
 		} else {
+			// user is not op
 			type = "error";
-			out = "User is not in channel";
+			out = "You don't have permission to do that";
 		}
 	} else {
-		// user is not op
 		type = "error";
-		out = "You don't have permission to do that";
+		out = "Paramater missing";
 	}
 	json = createJSON(out, "Server", type, channelName);
 	if(type == "error") {
@@ -661,14 +696,48 @@ COMM.ban = function(userName, channelName, userToBan) {
 	var out, type, json,
 	user = userList[userName], channel = channelList[channelName],
 	target = userList[userToKick];
-// is user op? n -> e, no perm
-// is target op? y -> e, deop first
-// sidenote: does not need to be in channel, or online
-// is already banned? y -> e, already banned
-// add ban
-// notify user, channel and target, if online
+	if(userToBan !== undefined || userToBan !== "") {
+		// is user op? n -> e, no perm
+		if(channel.isOp(userName)) {
+			// is target op? y -> e, deop first
+			if(!channel.isOp(userToBan)) {
+				// sidenote: does not need to be in channel, or online
+				// is already banned? y -> e, already banned
+				if(!channel.isBanned(userToBan)) {
+					// add ban
+					channel.addBan(userToBan);
+					// notify user, channel and target, if online
+					type = "status";
+					out = userToBan + " has been banned by " + userName;
+					json = createJSON(out, "Server", type, channelName);
+					channel.broadcastMsg(json);
+					type = "notice";
+					out = "You were banned from " + channelName + " by " + userName;
+					json = createJSON(out, "Server", type, channelName);
+					target.sendMsg(json);
+				} else {
+					type = "error";
+					out = userToBan + " is already banned";
+				}
+			} else {
+				type = "error";
+				out = userToBan + " is op, deop before banning";
+			}
+	
+		} else {
+			type = "error";
+			out = "You don't have permission to do that";
+		}		
+	} else {
+		type = "error";
+		out = "Parameter missing";
+	}
+	if(type == "error") {
+		json = createJSON(out, "Server", type, channelName);
+		user.sendMsg(json);
+	}
 }
-COMM.ban.desc = "";
+COMM.ban.desc = "/ban [username]<br/>";
 
 /**
  *	UNBAN
@@ -703,16 +772,60 @@ function Channel(user) {
 }
 
 Channel.prototype = {
-	setTopic: function(text, user) {
-		this.topic = {
-			topicText: text,
-			who: user,
-			time: (new Date()).getTime()
+	// getters
+	createUserlist: function() {
+		var i, pos, list = this.users.slice(0);
+		for(i in this.ops) {
+			pos = list.indexOf(this.ops[i]);
+			list[pos] = "@" + list[pos];
 		}
+		list.sort();
+		//		console.log(list);
+		return list;
+	},
+	getCreated: function() {
+		var time = new Date(this.created.time);
+		return "Channel was created by " + this.created.who + " at " + time.toLocaleString();
+	},
+	getNames: function() {
+		var names, list = this.createUserlist();
+		names = "Users currently in channel:<br/>";
+		for(var i in list) {
+			names += "[" + list[i] + "] ";
+		}
+		return names;
+	},
+	getTopic: function() {
+		//		this.topic = {
+		//			topicText: text,
+		//			who: user,
+		//			time: (new Date()).getTime()
+		//		}
+		var time = new Date(this.topic.time);
+		return this.topic !== false ? this.topic.topicText + ", set by " + this.topic.who + " at " + time.toLocaleString() : false;
+	},
+	getTopicText: function() {
+		return this.topic !== false ? this.topic.topicText : "";
+	},
+	// setters
+	addBan: function(user) {
+		this.bans.push(user);
+	},
+	addOp: function(user) {
+		this.ops.push(user);
 	},
 	addUser: function(user) {
 		this.users.push(user);
 		
+	},
+	removeOp: function(user) {
+		var index = this.ops.indexOf(user);
+		if(index > -1) {
+			this.ops.splice(index, 1);
+			return true;
+		} else {
+			return false;
+		}
 	},
 	removeUser: function(user) {
 		var index = this.users.indexOf(user);
@@ -724,22 +837,12 @@ Channel.prototype = {
 			return false;
 		}
 	},
-	broadcastMsg: function(json) {
-		var i, user;
-		for(i in this.users) {
-			user = userList[this.users[i]];
-			user.sendMsg(json);
+	setTopic: function(text, user) {
+		this.topic = {
+			topicText: text,
+			who: user,
+			time: (new Date()).getTime()
 		}
-	},
-	createUserlist: function() {
-		var i, pos, list = this.users.slice(0);
-		for(i in this.ops) {
-			pos = list.indexOf(this.ops[i]);
-			list[pos] = "@" + list[pos];
-		}
-		list.sort();
-		//		console.log(list);
-		return list;
 	},
 	switchName: function(oldNick, newNick) {
 		var pos;
@@ -754,50 +857,26 @@ Channel.prototype = {
 			}
 		}
 	},
-	getNames: function() {
-		var names, list = this.createUserlist();
-		names = "Users currently in channel:<br/>";
-		for(var i in list) {
-			names += "[" + list[i] + "] ";
-		}
-		return names;
+	// checks
+	inChannel: function(user) {
+		return this.users.indexOf(user) > -1 ? true : false;
 	},
-	getCreated: function() {
-		var time = new Date(this.created.time);
-		return "Channel was created by " + this.created.who + " at " + time.toLocaleString();
-	},
-	getTopic: function() {
-		//		this.topic = {
-		//			topicText: text,
-		//			who: user,
-		//			time: (new Date()).getTime()
-		//		}
-		var time = new Date(this.topic.time);
-		return this.topic !== false ? this.topic.topicText + ", set by " + this.topic.who + " at " + time.toLocaleString() : false;
-	},
-	getTopicText: function() {
-		return this.topic !== false ? this.topic.topicText : "";
+	isBanned: function(user) {
+		return this.bans.indexOf(user) > -1 ? true : false;
 	},
 	isOp: function(user) {
 		return this.ops.indexOf(user) > -1 ? true : false;
 	},
-	inChannel: function(user) {
-		return this.users.indexOf(user) > -1 ? true : false;
-	},
-	addOp: function(user) {
-		this.ops.push(user);
-	},
-	removeOp: function(user) {
-		var index = this.ops.indexOf(user);
-		if(index > -1) {
-			this.ops.splice(index, 1);
-			return true;
-		} else {
-			return false;
-		}
-	},
 	isOwner: function(user) {
 		return user == this.created.who ? true : false;
+	},
+	// other
+	broadcastMsg: function(json) {
+		var i, user;
+		for(i in this.users) {
+			user = userList[this.users[i]];
+			user.sendMsg(json);
+		}
 	}
 }
 
@@ -809,6 +888,7 @@ function User(connection) {
 	this.id	= connection.broadcastId;
 	this.activeChannels	= [];
 	this.ignores = [];
+	this.privs = [];
 }
 
 User.prototype = {
@@ -852,6 +932,15 @@ User.prototype = {
 	},
 	isIn: function(channel) {
 		return this.activeChannels.indexOf(channel) > -1 ? true : false;
+	},
+	addPriv: function(nick) {
+		this.privs.push(nick);
+	},
+	isInPriv: function(nick) {
+		return this.privs.indexOf(nick) > -1 ? true : false;
+	},
+	getPrivs: function() {
+		return this.privs;
 	}
 }
 
@@ -899,7 +988,14 @@ function acceptConnectionAsChat(request) {
 			channel = clientMsg.window;
 			msg = htmlEntities(clientMsg.msg);
 			// what type of msg? text or command?
-			// if first char is "/" = command
+			// is priv? :private
+			var isPriv = false;
+			if(channel.indexOf(":private") > -1) {
+				isPriv = true;
+				channel = channel.split(":")[0];
+			}
+			// is command? /
+			// written in log?
 			if(msg.substr(0, 1) === "/" || channel === "log") {
 				console.log(time + " Recieved command from " + userName + ": " + msg);
 				// split message, get first word
@@ -924,7 +1020,7 @@ function acceptConnectionAsChat(request) {
 						args = msg.split(" ");
 						args.shift(); // remove command
 						var action = args.join(" ");
-						COMM.me(userName, channel, action);
+						COMM.me(userName, channel, action, isPriv);
 						break;
 					case("nick"):
 						args = msg.split(" ");
@@ -1025,10 +1121,23 @@ function acceptConnectionAsChat(request) {
 				}
 			} else {
 				console.log(time + " Recieved message from " + userName + ": " + msg);
+				if(isPriv === true) {
+					// to priv window
+					COMM.msg(userName, channel, msg);
+				} else {
+					var channelObject = channelList[channel];
+					if(channelObject.isBanned(userName) === true) {
+						var user = userList[userName];
+						out = "Can not write to channel - banned";
+						json = createJSON(out, userName, "error", channel);
+						user.sendMsg(json);
+					} else {
+						// public message, do broadcast
+						json = createJSON(msg, userName, "message", channel);
+						channelObject.broadcastMsg(json);											
+					}
+				}
 			
-				// public message, do broadcast
-				json = createJSON(msg, userName, "message", channel);
-				channelList[channel].broadcastMsg(json);
 			}
 		}
 	});
@@ -1078,7 +1187,10 @@ wsServer.on("request", function(request) {
 	}
 
 	// Loop through protocols. Accept by highest order first.
-	for (var i=0; i < request.requestedProtocols.length; i++) {
+	// console.log(request);
+	// console.log(request.requestedProtocols);
+	var size = request.requestedProtocols.length;
+	for (var i=0; i < size; i++) {
 		if(request.requestedProtocols[i] === "chat-protocol") {
 			status = acceptConnectionAsChat(request);
 		}
