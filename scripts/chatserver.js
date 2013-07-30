@@ -543,32 +543,38 @@ COMM.topic.desc = "/topic (text)<br/>";
 COMM.op = function(userName, channelName, userToOp) {
 	var out, type, json,
 	user = userList[userName], channel = channelList[channelName];
-	// is username op?
-	if(userToOp !== undefined || userToOp !== "") {
-		if(channel.isOp(userName)) {
-			// user is op
-			// is target in channel?
-			if(channel.inChannel(userToOp)) {
-				// is target already op?
-				if(!channel.isOp(userToOp)) {
-					channel.addOp(userToOp);
-					type = "status";
-					out = userToOp + " has been oped by " + userName;
+	console.log(userToOp);
+	if(channel !== undefined) {
+		// is username op?
+		if(userToOp !== undefined || userToOp !== "") {
+			if(channel.isOp(userName)) {
+				// user is op
+				// is target in channel?
+				if(channel.inChannel(userToOp)) {
+					// is target already op?
+					if(!channel.isOp(userToOp)) {
+						channel.addOp(userToOp);
+						type = "status";
+						out = userToOp + " has been oped by " + userName;
+					} else {
+						type = "error";
+						out = "User is already op";
+					}
 				} else {
 					type = "error";
-					out = "User is already op";
+					out = "User is not in channel";
 				}
 			} else {
 				type = "error";
-				out = "User is not in channel";
+				out = "You don't have permission to do that";
 			}
 		} else {
 			type = "error";
-			out = "You don't have permission to do that";
+			out = "Paramater missing";
 		}
 	} else {
 		type = "error";
-		out = "Paramater missing";
+		out = "Must write in channel";
 	}
 	json = createJSON(out, "Server", type, channelName);
 	if(type == "error") {
@@ -588,34 +594,38 @@ COMM.op.desc = "/op [username]<br/>";
 COMM.deop = function(userName, channelName, userToDeop) {
 	var out, type, json,
 	user = userList[userName], channel = channelList[channelName];
-	
-	if(userToDeop !== undefined || userToDeop !== "") {
-		// is user op?
-		if(channel.isOp(userName)) {
-			// is target op?
-			if(channel.isOp(userToDeop)) {
-				// is target owner? don't allow deop of owner
-				if(!channel.isOwner(userToDeop)) {
-					// remove target
-					channel.removeOp(userToDeop);
-					type = "status";
-					out = userToDeop + " was deoped by " + userName;
+	if(channel !== undefined) {
+		if(userToDeop !== undefined || userToDeop !== "") {
+			// is user op?
+			if(channel.isOp(userName)) {
+				// is target op?
+				if(channel.isOp(userToDeop)) {
+					// is target owner? don't allow deop of owner
+					if(!channel.isOwner(userToDeop)) {
+						// remove target
+						channel.removeOp(userToDeop);
+						type = "status";
+						out = userToDeop + " was deoped by " + userName;
+					} else {
+						type = "error";
+						out = "You can't deop the owner";
+					}
 				} else {
 					type = "error";
-					out = "You can't deop the owner";
+					out = "User doesn't have op";
 				}
 			} else {
+				// user is not op
 				type = "error";
-				out = "User doesn't have op";
+				out = "You don't have permission to do that";
 			}
 		} else {
-			// user is not op
 			type = "error";
-			out = "You don't have permission to do that";
+			out = "Paramater missing";
 		}
 	} else {
 		type = "error";
-		out = "Paramater missing";
+		out = "Must write command in target channel";
 	}
 	json = createJSON(out, "Server", type, channelName);
 	if(type == "error") {
@@ -638,39 +648,44 @@ COMM.kick = function(userName, channelName, userToKick) {
 	var out, type, json,
 	user = userList[userName], channel = channelList[channelName],
 	target = userList[userToKick];
-	
-	if(userToKick !== undefined || userToKick !== "") {
-		// is user op?
-		if(channel.isOp(userName)) {
-			// is target in channel?
-			if(channel.inChannel(userToKick)) {
-				// is target not op?
-				if(!channel.isOp(userToKick)) {
-					// remove target from channel listings
-					channel.removeUser(userToKick);
-					// remove channel from target listings and interface
-					target.leaveChannel(channelName);
-					type = "status";
-					out = userToKick + " was kicked from channel by " + userName;
-				} else if(channel.isOwner(userToKick)) {
-					type = "error";
-					out = "You can't kick the owner";
+	if(channel !== undefined) {
+
+		if(userToKick !== undefined || userToKick !== "") {
+			// is user op?
+			if(channel.isOp(userName)) {
+				// is target in channel?
+				if(channel.inChannel(userToKick)) {
+					// is target not op?
+					if(!channel.isOp(userToKick)) {
+						// remove target from channel listings
+						channel.removeUser(userToKick);
+						// remove channel from target listings and interface
+						target.leaveChannel(channelName);
+						type = "status";
+						out = userToKick + " was kicked from channel by " + userName;
+					} else if(channel.isOwner(userToKick)) {
+						type = "error";
+						out = "You can't kick the owner";
+					} else {
+						type = "error";
+						out = "User has op, deop before kicking";
+					}
 				} else {
 					type = "error";
-					out = "User has op, deop before kicking";
+					out = "User is not in channel";
 				}
 			} else {
+				// user is not op
 				type = "error";
-				out = "User is not in channel";
+				out = "You don't have permission to do that";
 			}
 		} else {
-			// user is not op
 			type = "error";
-			out = "You don't have permission to do that";
+			out = "Paramater missing";
 		}
 	} else {
 		type = "error";
-		out = "Paramater missing";
+		out = "Must write command in target channel";
 	}
 	json = createJSON(out, "Server", type, channelName);
 	if(type == "error") {
@@ -695,42 +710,47 @@ COMM.kick.desc = "/kick [username]<br/>";
 COMM.ban = function(userName, channelName, userToBan) {
 	var out, type, json,
 	user = userList[userName], channel = channelList[channelName],
-	target = userList[userToKick];
-	if(userToBan !== undefined || userToBan !== "") {
-		// is user op? n -> e, no perm
-		if(channel.isOp(userName)) {
-			// is target op? y -> e, deop first
-			if(!channel.isOp(userToBan)) {
-				// sidenote: does not need to be in channel, or online
-				// is already banned? y -> e, already banned
-				if(!channel.isBanned(userToBan)) {
-					// add ban
-					channel.addBan(userToBan);
-					// notify user, channel and target, if online
-					type = "status";
-					out = userToBan + " has been banned by " + userName;
-					json = createJSON(out, "Server", type, channelName);
-					channel.broadcastMsg(json);
-					type = "notice";
-					out = "You were banned from " + channelName + " by " + userName;
-					json = createJSON(out, "Server", type, channelName);
-					target.sendMsg(json);
+	target = userList[userToBan];
+	if(channel !== undefined) {
+		if(userToBan !== undefined || userToBan !== "") {
+			// is user op? n -> e, no perm
+			if(channel.isOp(userName)) {
+				// is target op? y -> e, deop first
+				if(!channel.isOp(userToBan)) {
+					// sidenote: does not need to be in channel, or online
+					// is already banned? y -> e, already banned
+					if(!channel.isBanned(userToBan)) {
+						// add ban
+						channel.addBan(userToBan);
+						// notify user, channel and target, if online
+						type = "status";
+						out = userToBan + " has been banned by " + userName;
+						json = createJSON(out, "Server", type, channelName);
+						channel.broadcastMsg(json);
+						type = "notice";
+						out = "You were banned from " + channelName + " by " + userName;
+						json = createJSON(out, "Server", type, channelName);
+						target.sendMsg(json);
+					} else {
+						type = "error";
+						out = userToBan + " is already banned";
+					}
 				} else {
 					type = "error";
-					out = userToBan + " is already banned";
+					out = userToBan + " is op, deop before banning";
 				}
+	
 			} else {
 				type = "error";
-				out = userToBan + " is op, deop before banning";
-			}
-	
+				out = "You don't have permission to do that";
+			}		
 		} else {
 			type = "error";
-			out = "You don't have permission to do that";
-		}		
+			out = "Parameter missing";
+		}
 	} else {
 		type = "error";
-		out = "Parameter missing";
+		out = "Must write command in target channel";
 	}
 	if(type == "error") {
 		json = createJSON(out, "Server", type, channelName);
@@ -1108,8 +1128,12 @@ function acceptConnectionAsChat(request) {
 						var target = args.shift();
 						COMM.kick(userName, channel, target);
 						break;
-					//					case("ban"):
-					//						break;
+					case("ban"):
+						args = msg.split(" ");
+						args.shift();
+						var target = args.shift();
+						COMM.ban(userName, channel, target);
+						break;
 					//					case("unban"):
 					//						break;
 					default:
