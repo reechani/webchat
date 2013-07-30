@@ -74,7 +74,7 @@ $(document).ready(function(){
 					outputSpecific(json.data, json.type);
 					break;
 				case("private"):
-					json.data.channel += ":private";
+					//					json.data.channel += ":private";
 					checkPrivateWindow(json.data.channel);
 					outputSpecific(json.data, json.type);
 					break;
@@ -94,11 +94,13 @@ $(document).ready(function(){
 					toggleChannel(json.name);
 					break;
 				case("users"):
-					updateUsers(json.data.text, json.data.channel)
+					updateUsers(json.data.text, json.data.channel);
 					break;
 				case("topic"):
 					changeTopic(json.data);
 					break;
+				case("update"):
+					changePrivName(json.data);
 				default:
 					break;
 			}
@@ -141,7 +143,7 @@ $(document).ready(function(){
 			channels[active].history = $("#log").html();
 		}
 		// put history in log
-		$("#log").html(channels[channel].history);
+		$(output).html(channels[channel].history).scrollTop(output[0].scrollHeight);
 		$("#hChannel").text(channels[channel].name);
 		$("#hTopic").text(">> " + channels[channel].topic);
 		$("#channelList").val(channel);
@@ -205,7 +207,26 @@ $(document).ready(function(){
 		if(channel !== false) {
 			channels[channel].users = users;
 		}
-		
+		if(channel === active)
+		updateUserlist(channel);
+	//		console.log("Updating userList");
+	//		var active = $("#userList").val();
+	//		var select = $("#userList");
+	//		var options;
+	//		if(select.prop) {
+	//			options = select.prop("options");
+	//		} else {
+	//			options = select.attr("options");
+	//		}
+	//		$("option", select).remove();
+	//		
+	//		$.each(users, function(val, data) {
+	//			options[options.length] = new Option(data, data);
+	//		})
+	//		$("#userList").val(active);
+	}
+	
+	function updateUserlist(channel) {
 		console.log("Updating userList");
 		var active = $("#userList").val();
 		var select = $("#userList");
@@ -217,7 +238,7 @@ $(document).ready(function(){
 		}
 		$("option", select).remove();
 		
-		$.each(users, function(val, data) {
+		$.each(channels[channel].users, function(val, data) {
 			options[options.length] = new Option(data, data);
 		})
 		$("#userList").val(active);
@@ -316,6 +337,25 @@ $(document).ready(function(){
 		}
 	}
 	
+	function changePrivName(data) {
+		// author: to
+		// channel: from
+		var to = data.author + ":private";
+		var from = data.channel;
+		var targetChannel = channels[from];
+		delete channels[from];
+		channels[to] = targetChannel;
+		channels[to].name = data.author;
+		if(active == from) {
+			console.log("priv was active, copied log, set to active");
+			channels[to].history = $("#log").html();
+			updateChannels();
+			setActiveChannel(to);
+		} else {
+			updateChannels();
+		}
+	}
+	
 	function clear() {
 		output.text("");
 		channels = {};
@@ -332,11 +372,11 @@ $(document).ready(function(){
 		// send message and active window
 		var msg = $("#message").val();
 		var channel = $("#channelList").val();
-		if(channel.indexOf(":private") > 0) {
-			console.log("Sent from private");
-			var to = channel.split(":")[0];
-			msg = "/msg " + to + " " + msg;
-		}
+		//		if(channel.indexOf(":private") > 0) {
+		//			console.log("Sent from private");
+		//			var to = channel.split(":")[0];
+		//			msg = "/msg " + to + " " + msg;
+		//		}
 		// send message and active window
 		var json = JSON.stringify({
 			window: channel,
@@ -351,11 +391,11 @@ $(document).ready(function(){
 				return;
 			}
 			var channel = $("#channelList").val();
-			if(channel.indexOf(":private") > 0) {
-				console.log("Sent from private");
-				var to = channel.split(":")[0];
-				msg = "/msg " + to + " " + msg;
-			}
+			//			if(channel.indexOf(":private") > 0) {
+			//				console.log("Sent from private");
+			//				var to = channel.split(":")[0];
+			//				msg = "/msg " + to + " " + msg;
+			//			}
 			// send message and active window
 			var json = JSON.stringify({
 				window: channel,
