@@ -425,6 +425,22 @@ COMM.join = function(userName, channelName) {
 			out = userName + " joined #" + channelName;
 			json = createJSON(out, "Server", type, channelName);
 			channel.broadcastMsg(json);
+			
+			// is banned?
+			if(channel.isBanned(userName)) {
+				// kick and notify
+				// remove target from channel listings
+				channel.removeUser(userName);
+				// remove channel from target listings and interface
+				user.leaveChannel(channelName);
+				type = "status";
+				out = userName + " was kicked from channel by the server";
+				json = createJSON(out, "Server", type, channelName);
+				channel.broadcastMsg(json);
+				out = "You where kicked from #" + channelName + " by the server. Reason: banned.";
+				json = createJSON(out, "Server", "notice", channelName);
+				user.sendMsg(json);
+			}
 		} else {
 			out = "You're already in " + channelName;
 			type = "error";
