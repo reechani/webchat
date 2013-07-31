@@ -332,15 +332,6 @@ COMM.whois.desc = "/whois [username]<br/>"
 + "<br/>" + "Prints information about user";
 
 /**
- *	SLAP
- *	-> EMPTY
- */
-COMM.slap = function() {
-
-	}
-COMM.slap.desc = "";
-
-/**
  *	LIST
  */
 COMM.list = function(userName) {
@@ -825,15 +816,6 @@ COMM.unban = function(userName, channelName, userToUnban) {
 }
 COMM.unban.desc = "/unban (username)";
 
-
-/**
- *	QUIT
- */
-COMM.quit = function() {
-
-	}
-COMM.quit.desc = "";
-
 // -----------------------------------------------------------------------------
 // CHANNEL as object
 // -----------------------------------------------------------------------------
@@ -855,7 +837,9 @@ Channel.prototype = {
 		var i, pos, list = this.users.slice(0);
 		for(i in this.ops) {
 			pos = list.indexOf(this.ops[i]);
-			list[pos] = "@" + list[pos];
+			if(pos > -1) {
+				list[pos] = "@" + list[pos];
+			}
 		}
 		list.sort();
 		//		console.log(list);
@@ -1057,9 +1041,9 @@ function acceptConnectionAsChat(request) {
 		console.log(clientMsg);
 
 		if(userName === false) {
-			nick = htmlEntities(clientMsg.msg);
 			// only take first word
-			nick = nick.split(" ")[0];
+			nick = clientMsg.msg.split(" ")[0];
+			nick = nick.replace(/[^a-zA-Z0-9]/g, "");
 			// max length: 12
 			if(nick.length > COMM.max_nick) {
 				nick = nick.slice(0, COMM.max_nick);
@@ -1128,8 +1112,6 @@ function acceptConnectionAsChat(request) {
 						nick = args.shift();
 						COMM.whois(userName, nick);
 						break;
-					//					case("slap"):
-					//						break;
 					case("list"):
 						COMM.list(userName);
 						break;
