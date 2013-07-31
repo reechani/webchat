@@ -8,6 +8,7 @@ var connectedClients = [];
 var userList = {};
 var channelList = {};
 
+// message and nick restricitons
 var COMM = {
 	max_nick: 12,
 	max_msg: 256
@@ -39,8 +40,13 @@ wsServer = new WebSocketServer({
 	autoAcceptConnections: false
 });
 
+// -----------------------------------------------------------------------------
+// SERVER aid-functions
+// -----------------------------------------------------------------------------
+
 /**
  * Always check and explicitly allow the origin
+ *	Currently allows the server it is run on and if run locally
  */
 function originIsAllowed(origin) {
 	if(origin === "http://www.student.bth.se" || origin === "http://localhost") {
@@ -74,10 +80,13 @@ function clearUserFromAllChannels(userName) {
 	var i, json, out, target, user = userList[userName];
 	var channels = user.getChannels();
 	var privs = user.getPrivs();
+	// loop all channels for user
 	for(i in channels) {
 		var channelName = channels[i];
 		var channel = channelList[channelName];
+		// leave channel
 		if(user.leaveChannel(channelName)) {
+			// remove user from channel's list
 			if(channel.removeUser(userName)) {
 				console.log("User removed from channel");
 				console.log(channel);
@@ -86,7 +95,7 @@ function clearUserFromAllChannels(userName) {
 				console.log(json);
 				channel.broadcastMsg(json);
 
-				// to channel
+				// message to channel
 				out = userName + " has quit";
 				json = createJSON(out, "Server", "status", channelName);
 				console.log(json);
@@ -94,10 +103,12 @@ function clearUserFromAllChannels(userName) {
 			}
 		}
 	}
-	// clear from all privs
+	// message to all privs
 	for(i in privs) {
 		target = userList[privs[i]];
+		// is target user online?
 		if(target !== undefined) {
+			// send quit message to priv window
 			channelName = userName + ":private";
 			out = userName + " has quit";
 			json = createJSON(out, userName, "status", channelName);
@@ -107,23 +118,55 @@ function clearUserFromAllChannels(userName) {
 }
 
 /**
- *	Creates and sends private window message, /me or text
+ *	Creates and sends private window message - /me or text
  */
 function sendPrivate(sender, reciever, msg, type) {
 	var json, target = userList[reciever], user = userList[sender];
-	// add to privs
+	// add to privs if not in it
 	if(user.isInPriv(reciever) == false) {
 		user.addPriv(reciever);
 	}
+	// target message
 	json = createJSON(msg, sender, type, sender+":private");
 	target.sendMsg(json);
+	// self message
 	json = createJSON(msg, sender, type, reciever+":private");
 	user.sendMsg(json);
 }
 
+/**
+*	Create the JSON-objects that will be sent to the user
+*/
+function createJSON(message, sender, msgType, toChannel) {
+	var time = new Date();
+	var obj = {
+		time: time.getTime(),
+		text: htmlEntities(message),
+		author: sender,
+		channel: toChannel
+	}
+	var json = JSON.stringify({
+		type: msgType,
+		data: obj
+	});
+	//console.log(json);
+	return json;
+}
+
+/**
+ * Avoid injections
+ */
+function htmlEntities(str) {
+	return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
 // -----------------------------------------------------------------------------
-// COMMANDS
+// COMMAND functions, COMM-object
 // -----------------------------------------------------------------------------
+
+/**
+ * Validate a function name
+ */
 COMM.isComm = function(msg) {
 	var valid = false;
 	if(msg.substr(0, 1) === "/" && msg.length > 1) {
@@ -182,8 +225,7 @@ COMM.msg = function(sender, nick, msg) {
 	} else if (!isNickUsed(nick)) {
 		out = "User " + nick + " is not online.";
 		type = "error";
-	} else if(msg.replace(/\s/g, "").length === 0){
-		// check that message is not empty
+	} else if(msg.replace(/\s/g, "").length === 0){ // check that message is not empty
 		// string is invalid
 		out = "Message missing.";
 		type = "error";
@@ -210,7 +252,9 @@ COMM.msg.desc = "/msg [nick] [message]<br/>"
  */
 COMM.me = function(sender, channelName, msg, isPriv) {
 	var out, json, type, user = userList[sender], channel = channelList[channelName];
+	// check that channel was not empty, or if priv
 	if(channel !== undefined || isPriv === true) {
+		// empty message allowed, but no undefined
 		if(msg === undefined) {
 			msg = "";
 		}
@@ -226,6 +270,7 @@ COMM.me = function(sender, channelName, msg, isPriv) {
 		user.sendMsg(json);
 	} else {
 		if(isPriv === true) {
+			// to priv
 			sendPrivate(sender, channelName, out, type);
 		} else {
 			// broadcast to channel
@@ -287,8 +332,10 @@ COMM.nick = function(sender, newNick) {
 				channel.broadcastMsg(json);
 			}
 			var privs = user.getPrivs();
+			// send update message of namechange to all active privs
 			for(i in privs) {
 				var target = userList[privs[i]];
+				// is online?
 				if(target !== undefined) {
 					json = createJSON("", nick, "update", sender + ":private");
 					target.sendMsg(json);
@@ -311,10 +358,12 @@ COMM.nick.desc = "/nick [newNick]<br/>"
  */
 COMM.whois = function(sender, nick) {
 	var out, type, json, user = userList[sender], target = userList[nick];
+	// no empty paramater
 	if(nick === undefined || nick === "") {
 		type = "error";
 		out = "Nickname can not be empty";
 	} else {
+		// target online?
 		if(target !== undefined) {
 			type = "notice";
 			out = target.getInfo(nick);
@@ -323,7 +372,6 @@ COMM.whois = function(sender, nick) {
 			out = "User is not online";
 		}
 	}
-	//	out += "<br/>Idle: " + connectedClients[userList[nick].id].socket._idleStart;
 
 	json = createJSON(out, "Server", type, false);
 	user.sendMsg(json);
@@ -336,7 +384,6 @@ COMM.whois.desc = "/whois [username]<br/>"
  */
 COMM.list = function(userName) {
 	var out, type, json, user = userList[userName];
-	// lists all channels
 	// get all channels and make string to send
 	out = "Active channels:<br/>";
 	for(var channel in channelList) {
@@ -355,8 +402,10 @@ COMM.list.desc = "/list <br/>"
 COMM.names = function(userName, channelName, toLog) {
 	var out, type, json, user = userList[userName], channel = channelList[channelName];
 
+	// not names for empty/missing channel or log
 	if(channelName !== "log" && channel !== undefined) {
 		out = channel.getNames();
+		// if toLog was set, channel came from parameter, print to log (notice)
 		if(toLog === true) {
 			type = "notice";
 		} else {
@@ -385,7 +434,7 @@ COMM.join = function(userName, channelName) {
 			channel = channelList[channelName] = new Channel(userName);
 		}
 		// check: user not in channel
-		if(!user.isIn(channelName)) {
+		if(!user.isInChannel(channelName)) {
 			// tell client to open window
 			json = JSON.stringify({
 				type: "toggle",
@@ -397,11 +446,11 @@ COMM.join = function(userName, channelName) {
 			channel.addUser(userName);
 			user.addChannel(channelName);
 
-			// send topic and channel creation info back to user
+			// send channel creation info back to user
 			type = "status";
 			json = createJSON(channel.getCreated(), "Server", type, channelName);
 			user.sendMsg(json);
-			// topic
+			// send topic
 			type = "topic";
 			json = createJSON(channel.getTopicText(), "Server", type, channelName);
 			user.sendMsg(json);
@@ -424,10 +473,12 @@ COMM.join = function(userName, channelName) {
 				channel.removeUser(userName);
 				// remove channel from target listings and interface
 				user.leaveChannel(channelName);
+				
 				type = "status";
 				out = userName + " was kicked from channel by the server";
 				json = createJSON(out, "Server", type, channelName);
 				channel.broadcastMsg(json);
+				// send message notice to target user
 				out = "You where kicked from #" + channelName + " by the server. Reason: banned.";
 				json = createJSON(out, "Server", "notice", channelName);
 				user.sendMsg(json);
@@ -496,6 +547,7 @@ COMM.part.desc = "/part<br/>"
  *	LEAVE
  */
 COMM.leave = function(userName, channelName) {
+	// same function ability as /part, use that
 	COMM.part(userName, channelName);
 }
 COMM.leave.desc = "/leave<br/>"
@@ -513,7 +565,7 @@ COMM.topic = function(userName, channelName, topic) {
 		if(channel.isOp(userName)) {
 			// op
 			channel.setTopic(topic, userName);
-			out = userName + " set topic to: " + topic; // broadcast
+			out = userName + " set topic to: " + topic; // broadcast to channel
 			type = "status";
 			json = createJSON(out, "Server", type, channelName);
 			channel.broadcastMsg(json);
@@ -524,7 +576,6 @@ COMM.topic = function(userName, channelName, topic) {
 			channel.broadcastMsg(json);
 		} else {
 			// not op
-			// can't do that -  no permission
 			out = "You don't have permission to change topic";
 			type = "error";
 			// unicast
@@ -539,6 +590,7 @@ COMM.topic = function(userName, channelName, topic) {
 		// print it to user
 		out = channel.getTopic();
 		if(out === false) {
+			// if topic is not set, give that msg instead
 			out = "Topic not set";
 		}
 		type = "status";
@@ -554,7 +606,7 @@ COMM.topic.desc = "/topic (text)<br/>";
 COMM.op = function(userName, channelName, userToOp) {
 	var out, type, json,
 	user = userList[userName], channel = channelList[channelName];
-	console.log(userToOp);
+	// channel must exist
 	if(channel !== undefined) {
 		// is username op?
 		if(userToOp !== undefined || userToOp !== "") {
@@ -592,6 +644,7 @@ COMM.op = function(userName, channelName, userToOp) {
 		user.sendMsg(json);
 	} else {
 		channel.broadcastMsg(json);
+		// send updated userlist
 		type = "users";
 		json = createJSON(channel.createUserlist(), "Server", type, channelName);
 		channel.broadcastMsg(json);
@@ -605,7 +658,9 @@ COMM.op.desc = "/op [username]<br/>";
 COMM.deop = function(userName, channelName, userToDeop) {
 	var out, type, json,
 	user = userList[userName], channel = channelList[channelName];
+	// channel must exist
 	if(channel !== undefined) {
+		// user can not be empty
 		if(userToDeop !== undefined || userToDeop !== "") {
 			// is user op?
 			if(channel.isOp(userName)) {
@@ -643,8 +698,8 @@ COMM.deop = function(userName, channelName, userToDeop) {
 		user.sendMsg(json);
 	} else {
 		// broadcast to channel
-		// broadcast new userlist
 		channel.broadcastMsg(json);
+		// broadcast new userlist
 		type = "users";
 		json = createJSON(channel.createUserlist(), "Server", type, channelName)
 		channel.broadcastMsg(json);
@@ -659,6 +714,7 @@ COMM.kick = function(userName, channelName, userToKick) {
 	var out, type, json,
 	user = userList[userName], channel = channelList[channelName],
 	target = userList[userToKick];
+	// channel must be set
 	if(channel !== undefined) {
 
 		if(userToKick !== undefined && userToKick !== "") {
@@ -703,11 +759,12 @@ COMM.kick = function(userName, channelName, userToKick) {
 		user.sendMsg(json);
 	} else {
 		// broadcast to channel
-		// broadcast new userlist
 		channel.broadcastMsg(json);
+		// broadcast new userlist
 		type = "users";
 		json = createJSON(channel.createUserlist(), "Server", type, channelName)
 		channel.broadcastMsg(json);
+		// message to target
 		out = "You where kicked from #" + channelName;
 		json = createJSON(out, "Server", "notice", false);
 		target.sendMsg(json);
@@ -722,7 +779,9 @@ COMM.ban = function(userName, channelName, userToBan) {
 	var out, type, json,
 	user = userList[userName], channel = channelList[channelName],
 	target = userList[userToBan];
+	// channel must exist
 	if(channel !== undefined) {
+		// target must be set
 		if(userToBan !== undefined || userToBan !== "") {
 			// is user op? n -> e, no perm
 			if(channel.isOp(userName)) {
@@ -791,9 +850,9 @@ COMM.unban = function(userName, channelName, userToUnban) {
 					out = userToUnban + " is not in the banlist";
 				}
 			} else {
+				// no name sent, print list
 				type = "notice";
 				out = channel.getBanlist();
-			// print banlist?
 			}
 		} else {
 			type = "error";
@@ -814,14 +873,14 @@ COMM.unban = function(userName, channelName, userToUnban) {
 			break;
 	}
 }
-COMM.unban.desc = "/unban (username)";
+COMM.unban.desc = "/unban (username)<br/>";
 
 // -----------------------------------------------------------------------------
 // CHANNEL as object
 // -----------------------------------------------------------------------------
 function Channel(user) {
 	this.ops	=	[user];
-	this.voice	=	[];
+	//this.voice	=	[];
 	this.bans	=	[];
 	this.users	=	[];
 	this.topic	=	false;
@@ -965,17 +1024,34 @@ Channel.prototype = {
 function User(connection) {
 	this.id	= connection.broadcastId;
 	this.activeChannels	= [];
-	this.ignores = [];
+	//this.ignores = [];
 	this.privs = [];
 }
 
 User.prototype = {
-	idleTimer: 1000,
+	// variables
+	idleTimer: 1000,	
+	// getters
 	getChannels: function() {
 		return this.activeChannels;
 	},
+	getInfo: function(nick) {
+		var info = nick + "@" + connectedClients[this.id].remoteAddress + "<br/>";
+		info += "Channels: ";
+		for(var i in this.activeChannels) {
+			info += "#" + this.activeChannels[i] + " ";
+		}
+		return info;
+	},
+	getPrivs: function() {
+		return this.privs;
+	},
+	// setters
 	addChannel: function(channel) {
 		this.activeChannels.push(channel);
+	},
+	addPriv: function(nick) {
+		this.privs.push(nick);
 	},
 	leaveChannel: function(channel) {
 		var index = this.activeChannels.indexOf(channel);
@@ -993,32 +1069,16 @@ User.prototype = {
 			return false;
 		}
 	},
-	sendMsg: function(json) {
-		connectedClients[this.id].sendUTF(json);
-	},
-	getInfo: function(nick) {
-		var info = nick + "@" + connectedClients[this.id].remoteAddress + "<br/>";
-		info += "Channels: ";
-		for(var i in this.activeChannels) {
-			info += "#" + this.activeChannels[i] + " ";
-		}
-		//		var time = new Date(connectedClients[this.id].socket._idleStart);
-		//		if((new Date().getTime() - time) > User.idleTimer) {
-		//			info += "<br/>Idle: " + time.toLocaleString();
-		//		}
-		return info;
-	},
-	isIn: function(channel) {
+	// checks
+	isInChannel: function(channel) {
 		return this.activeChannels.indexOf(channel) > -1 ? true : false;
-	},
-	addPriv: function(nick) {
-		this.privs.push(nick);
 	},
 	isInPriv: function(nick) {
 		return this.privs.indexOf(nick) > -1 ? true : false;
 	},
-	getPrivs: function() {
-		return this.privs;
+	// other
+	sendMsg: function(json) {
+		connectedClients[this.id].sendUTF(json);
 	}
 }
 
@@ -1104,6 +1164,8 @@ function acceptConnectionAsChat(request) {
 						args = msg.split(" ");
 						args.shift();
 						nick = args.shift();
+						// remove chars
+						nick = nick.replace(/[^a-zA-Z0-9]/g, "");
 						userName = COMM.nick(userName, nick);
 						break;
 					case("whois"):
@@ -1113,15 +1175,18 @@ function acceptConnectionAsChat(request) {
 						COMM.whois(userName, nick);
 						break;
 					case("list"):
+						// takes no arguments
 						COMM.list(userName);
 						break;
 					case("names"):
 						args = msg.split(" ");
 						args.shift();
 						var listChannel = args.shift();
+						// if no argument, do for active channel
 						if(listChannel === undefined || listChannel === "") {
 							COMM.names(userName, channel);
 						} else if(listChannel !== channel) {
+							// do for argument sent
 							listChannel = listChannel.replace("#", "");
 							COMM.names(userName, listChannel, true);
 						}
@@ -1130,17 +1195,20 @@ function acceptConnectionAsChat(request) {
 						args = msg.split(" ");
 						args.shift();
 						channel = args.shift();
-						if(channel !== undefined || channel )
+						if(channel !== undefined || channel !== "") {
 							channel = channel.replace("#", "");
+						}
 						COMM.join(userName, channel);
 						break;
 					case("part"):
 						args = msg.split(" ");
 						args.shift();
 						var partChannel = args.shift();
+						// if no argument, do for window sent from
 						if(partChannel === undefined || partChannel === "") {
 							COMM.part(userName, channel);
 						} else if(partChannel !== channel) {
+							// do for argument
 							partChannel = partChannel.replace("#", "");
 							COMM.part(userName, partChannel);
 						} else {
@@ -1239,25 +1307,6 @@ function acceptConnectionAsChat(request) {
 }
 
 /**
-*	Create the JSON-objects that will be sent to the user
-*/
-function createJSON(message, sender, msgType, toChannel) {
-	var time = new Date();
-	var obj = {
-		time: time.getTime(),
-		text: htmlEntities(message),
-		author: sender,
-		channel: toChannel
-	}
-	var json = JSON.stringify({
-		type: msgType,
-		data: obj
-	});
-	//console.log(json);
-	return json;
-}
-
-/**
 *	Create a callback to handle each connection request
 */
 wsServer.on("request", function(request) {
@@ -1287,13 +1336,3 @@ wsServer.on("request", function(request) {
 	}
 
 });
-
-// -----------------------------------------------------------------------------
-// -----------------------------------------------------------------------------
-/**
-* Avoid injections
-*
-*/
-function htmlEntities(str) {
-	return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-}
