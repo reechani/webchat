@@ -1,7 +1,7 @@
 /**
  * Create a stripped websocket-server using the sample code from:
  * https://github.com/Worlize/WebSocket-Node#server-example
- * 
+ *
  */
 var port = 57005;
 var connectedClients = [];
@@ -44,7 +44,7 @@ wsServer = new WebSocketServer({
  */
 function originIsAllowed(origin) {
 	if(origin === "http://www.student.bth.se" || origin === "http://localhost") {
-		return true;    
+		return true;
 	}
 	return false;
 }
@@ -85,7 +85,7 @@ function clearUserFromAllChannels(userName) {
 				json = createJSON(channel.createUserlist(), "Server", "users", channelName)
 				console.log(json);
 				channel.broadcastMsg(json);
-				
+
 				// to channel
 				out = userName + " has quit";
 				json = createJSON(out, "Server", "status", channelName);
@@ -140,7 +140,7 @@ COMM.help = function(sender, command) {
 	var out, json, type, user = userList[sender];
 	if(!command) {
 		// view all commands
-		/*	
+		/*
 		 *	TODO:
 		 *	Find better way of listing commands available
 		 */
@@ -324,7 +324,7 @@ COMM.whois = function(sender, nick) {
 		}
 	}
 	//	out += "<br/>Idle: " + connectedClients[userList[nick].id].socket._idleStart;
-	
+
 	json = createJSON(out, "Server", type, false);
 	user.sendMsg(json);
 }
@@ -336,7 +336,7 @@ COMM.whois.desc = "/whois [username]<br/>"
  *	-> EMPTY
  */
 COMM.slap = function() {
-	
+
 	}
 COMM.slap.desc = "";
 
@@ -363,7 +363,7 @@ COMM.list.desc = "/list <br/>"
  */
 COMM.names = function(userName, channelName, toLog) {
 	var out, type, json, user = userList[userName], channel = channelList[channelName];
-	
+
 	if(channelName !== "log" && channel !== undefined) {
 		out = channel.getNames();
 		if(toLog === true) {
@@ -375,7 +375,7 @@ COMM.names = function(userName, channelName, toLog) {
 		type = "error";
 		out = "Invalid channel, cannot list users for " + channelName;
 	}
-	
+
 	json = createJSON(out, "Server", type, channelName);
 	user.sendMsg(json);
 }
@@ -401,11 +401,11 @@ COMM.join = function(userName, channelName) {
 				name: channelName
 			});
 			user.sendMsg(json);
-			
+
 			// add user
 			channel.addUser(userName);
 			user.addChannel(channelName);
-			
+
 			// send topic and channel creation info back to user
 			type = "status";
 			json = createJSON(channel.getCreated(), "Server", type, channelName);
@@ -414,18 +414,18 @@ COMM.join = function(userName, channelName) {
 			type = "topic";
 			json = createJSON(channel.getTopicText(), "Server", type, channelName);
 			user.sendMsg(json);
-			
+
 			// send userlist back to user
 			type = "users";
 			json = createJSON(channel.createUserlist(), "Server", type, channelName)
 			channel.broadcastMsg(json);
-		
+
 			// send msg that user connected to all other users in channel
 			type = "status";
 			out = userName + " joined #" + channelName;
 			json = createJSON(out, "Server", type, channelName);
 			channel.broadcastMsg(json);
-			
+
 			// is banned?
 			if(channel.isBanned(userName)) {
 				// kick and notify
@@ -440,6 +440,10 @@ COMM.join = function(userName, channelName) {
 				out = "You where kicked from #" + channelName + " by the server. Reason: banned.";
 				json = createJSON(out, "Server", "notice", channelName);
 				user.sendMsg(json);
+				// send userlist back to user
+				type = "users";
+				json = createJSON(channel.createUserlist(), "Server", type, channelName)
+				channel.broadcastMsg(json);
 			}
 		} else {
 			out = "You're already in " + channelName;
@@ -470,12 +474,12 @@ COMM.part = function(userName, channelName) {
 			// send userlist
 			json = createJSON(channel.createUserlist(), "Server", "users", channelName)
 			channel.broadcastMsg(json);
-			
+
 			// to channel
 			out = userName + " has left " + channelName;
 			json = createJSON(out, "Server", "status", channelName);
 			channel.broadcastMsg(json);
-			
+
 			// to user
 			out = "You have left " + channelName;
 			json = createJSON(out, "Server", "notice", channelName);
@@ -512,7 +516,7 @@ COMM.leave.desc = "/leave<br/>"
  */
 COMM.topic = function(userName, channelName, topic) {
 	var out, type, json, user = userList[userName], channel = channelList[channelName];
-	// if topic is set, set topic, else just print it to user	
+	// if topic is set, set topic, else just print it to user
 	if(topic !== undefined && topic !== "") {
 		//is user op?
 		if(channel.isOp(userName)) {
@@ -666,7 +670,7 @@ COMM.kick = function(userName, channelName, userToKick) {
 	target = userList[userToKick];
 	if(channel !== undefined) {
 
-		if(userToKick !== undefined || userToKick !== "") {
+		if(userToKick !== undefined && userToKick !== "") {
 			// is user op?
 			if(channel.isOp(userName)) {
 				// is target in channel?
@@ -755,11 +759,11 @@ COMM.ban = function(userName, channelName, userToBan) {
 					type = "error";
 					out = userToBan + " is op, deop before banning";
 				}
-	
+
 			} else {
 				type = "error";
 				out = "You don't have permission to do that";
-			}		
+			}
 		} else {
 			type = "error";
 			out = "Parameter missing";
@@ -778,17 +782,55 @@ COMM.ban.desc = "/ban [username]<br/>";
 /**
  *	UNBAN
  */
-COMM.unban = function() {
-	
+COMM.unban = function(userName, channelName, userToUnban) {
+	var json, out, type, target = userList[userToUnban],
+	user = userList[userName], channel = channelList[channelName];
+	// check that channel and user exist
+	if(channel !== undefined) {
+		// check that username is op
+		if(channel.isOp(userName)) {
+			if((userToUnban !== undefined && userToUnban !== "")) {
+				// check that target is in the banlist
+				if(channel.isBanned(userToUnban)) {
+					channel.removeBan(userToUnban);
+					type = "status";
+					out = userToUnban + " has been unbanned by " + userName;
+				} else {
+					type = "error";
+					out = userToUnban + " is not in the banlist";
+				}
+			} else {
+				type = "notice";
+				out = channel.getBanlist();
+			// print banlist?
+			}
+		} else {
+			type = "error";
+			out = "You don't have permission to do that";
+		}
+	} else {
+		type = "error";
+		out = "Parameter missing or invalid";
 	}
-COMM.ban.desc = "";
+	json = createJSON(out, "Server", type, channelName);
+	switch(type) {
+		case("notice"):
+		case("error"):
+			user.sendMsg(json);
+			break;
+		case("status"):
+			channel.broadcastMsg(json);
+			break;
+	}
+}
+COMM.unban.desc = "/unban (username)";
 
 
 /**
  *	QUIT
  */
 COMM.quit = function() {
-	
+
 	}
 COMM.quit.desc = "";
 
@@ -817,6 +859,13 @@ Channel.prototype = {
 		}
 		list.sort();
 		//		console.log(list);
+		return list;
+	},
+	getBanlist: function() {
+		var i, list = "Users currently banned:<br/>";
+		for(i in this.bans) {
+			list += this.bans[i] + "<br/>";
+		}
 		return list;
 	},
 	getCreated: function() {
@@ -852,7 +901,16 @@ Channel.prototype = {
 	},
 	addUser: function(user) {
 		this.users.push(user);
-		
+
+	},
+	removeBan: function(user) {
+		var index = this.bans.indexOf(user);
+		if(index > -1) {
+			this.bans.splice(index, 1);
+			return true
+		} else {
+			return false;
+		}
 	},
 	removeOp: function(user) {
 		var index = this.ops.indexOf(user);
@@ -993,11 +1051,11 @@ function acceptConnectionAsChat(request) {
 	connection.on("message", function(message) {
 		var time = new Date(),
 		out, json, msg, clientMsg, channel, nick;
-		
+
 		clientMsg = JSON.parse(message.utf8Data);
-		
+
 		console.log(clientMsg);
-		
+
 		if(userName === false) {
 			nick = htmlEntities(clientMsg.msg);
 			// only take first word
@@ -1006,17 +1064,17 @@ function acceptConnectionAsChat(request) {
 			if(nick.length > COMM.max_nick) {
 				nick = nick.slice(0, COMM.max_nick);
 			}
-			
+
 			while(isNickUsed(nick)) {
 				out = "Nick " + nick + " is already in use. ";
 				nick += rand(0, 9);
 			}
 			userName = nick;
-			
+
 			console.log(time + " User is known as: " + userName);
 			// add to userlist
 			userList[userName] = new User(connection);
-			
+
 			out = "Your are known as " + nick;
 			json = createJSON(out, "Server", "notice", false);
 			userList[userName].sendMsg(json);
@@ -1150,8 +1208,12 @@ function acceptConnectionAsChat(request) {
 						var target = args.shift();
 						COMM.ban(userName, channel, target);
 						break;
-					//					case("unban"):
-					//						break;
+					case("unban"):
+						args = msg.split(" ");
+						args.shift();
+						var target = args.shift();
+						COMM.unban(userName, channel, target);
+						break;
 					default:
 						// send message that command does not exist
 						message = "Unknown command: " + msg;
@@ -1174,14 +1236,14 @@ function acceptConnectionAsChat(request) {
 					} else {
 						// public message, do broadcast
 						json = createJSON(msg, userName, "message", channel);
-						channelObject.broadcastMsg(json);											
+						channelObject.broadcastMsg(json);
 					}
 				}
-			
+
 			}
 		}
 	});
-  
+
 	// Callback when client closes the connection
 	connection.on("close", function(reasonCode, description) {
 		var time = new Date();
