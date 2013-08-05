@@ -3,7 +3,8 @@
  * https://github.com/Worlize/WebSocket-Node#server-example
  *
  */
-var port = 57005;
+//var port = 57005; // graveraven
+var port = 8042;
 var connectedClients = [];
 var userList = {};
 var channelList = {};
@@ -177,17 +178,17 @@ COMM.isComm = function(msg) {
 
 /**
  *	HELP
- *	-> TODO
  */
 COMM.help = function(sender, command) {
-	var out, json, type, user = userList[sender];
+	var out = "", json, type, user = userList[sender];
 	if(!command) {
 		// view all commands
-		/*
-		 *	TODO:
-		 *	Find better way of listing commands available
-		 */
-		out = "help&#09;msg&#09;me&#09;nick&#09;join";
+		// loop all commands, and add the ones with a desc
+		for(var propt in COMM) {
+			if(COMM[propt].desc !== undefined) {
+				out += propt + "&#09;";
+			}
+		}
 		type = "notice";
 	} else {
 		// view for one command
@@ -351,7 +352,8 @@ COMM.nick = function(sender, newNick) {
 	return nick;
 }
 COMM.nick.desc = "/nick [newNick]<br/>"
-+ "<br/>" + "Used to change your visible nickname";
++ "<br/>" + "Used to change your visible nickname"
++ "<br/>" + "Only numbers and letters allowed";
 
 /**
  *	WHOIS
@@ -385,15 +387,19 @@ COMM.whois.desc = "/whois [username]<br/>"
 COMM.list = function(userName) {
 	var out, type, json, user = userList[userName];
 	// get all channels and make string to send
-	out = "Active channels:<br/>";
-	for(var channel in channelList) {
-		out += "#" + channel + "<br/>";
+	if(Object.keys(channelList).length > 0) {
+		out = "Active channels:<br/>";
+		for(var channel in channelList) {
+			out += "#" + channel + "<br/>";
+		}
+	} else {
+		out = "No active channels";
 	}
 	type = "notice";
 	json = createJSON(out, "Server", type, false);
 	user.sendMsg(json);
 }
-COMM.list.desc = "/list <br/>"
+COMM.list.desc = "/list<br/>"
 + "<br/>" + "Lists all currently active channels";
 
 /**
@@ -420,7 +426,8 @@ COMM.names = function(userName, channelName, toLog) {
 	user.sendMsg(json);
 }
 COMM.names.desc = "/names (channel)<br/>"
-+ "<br/>" + "Lists all users currently in channel";
++ "<br/>" + "Lists all users currently in channel"
++ "<br/>" + "If option argument is left out it will print users of the channel command was written in";
 
 /**
  *	JOIN
@@ -560,7 +567,11 @@ COMM.leave.desc = "/leave<br/>"
 COMM.topic = function(userName, channelName, topic) {
 	var out, type, json, user = userList[userName], channel = channelList[channelName];
 	// if topic is set, set topic, else just print it to user
-	if(topic !== undefined && topic !== "") {
+	if(channel === undefined) {
+		out = "Can't get topic for " + channelName;
+		json = createJSON(out, "Server", "error", channelName);
+		user.sendMsg(json);
+	} else if(topic !== undefined && topic !== "") {
 		//is user op?
 		if(channel.isOp(userName)) {
 			// op
@@ -582,10 +593,6 @@ COMM.topic = function(userName, channelName, topic) {
 			json = createJSON(out, "Server", type, channelName);
 			user.sendMsg(json);
 		}
-	} else if(channel === undefined) {
-		out = "Can't get topic for " + channelName;
-		json = createJSON(out, "Server", "error", channelName);
-		user.sendMsg(json);
 	} else {
 		// print it to user
 		out = channel.getTopic();
@@ -598,7 +605,11 @@ COMM.topic = function(userName, channelName, topic) {
 		user.sendMsg(json);
 	}
 }
-COMM.topic.desc = "/topic (text)<br/>";
+COMM.topic.desc = "/topic (text)<br/>"
++ "<br/>" + "Used to see or set a topic text for a channel"
++ "<br/>" + "Just writing /topic will display it, adding text after will atempt to set it"
++ "<br/>" + "Can only set topic as op"
++ "<br/>" + "Needs to be written in the channel window of which you want to set/see it"
 
 /**
  *	OP
@@ -650,7 +661,11 @@ COMM.op = function(userName, channelName, userToOp) {
 		channel.broadcastMsg(json);
 	}
 }
-COMM.op.desc = "/op [username]<br/>";
+COMM.op.desc = "/op [username]<br/>"
++ "<br/>" + "Used to elevate user to operator"
++ "<br/>" + "Op status needed to preform command"
++ "<br/>" + "Operators can set topic, op, deop, kick, ban and unban users from channel in which oped"
++ "<br/>" + "Needs to be written in the channel window of which target user is in";
 
 /**
  *	DEOP
@@ -705,7 +720,11 @@ COMM.deop = function(userName, channelName, userToDeop) {
 		channel.broadcastMsg(json);
 	}
 }
-COMM.deop.desc = "/deop [username]<br/>";
+COMM.deop.desc = "/deop [username]<br/>"
++ "<br/>" + "Used to remove status of operator from user"
++ "<br/>" + "Op status needed to preform command"
++ "<br/>" + "User does not need to be in channel or online for this command"
++ "<br/>" + "Needs to be written in the channel window of which target user is operator of";
 
 /**
  *	KICK
@@ -770,7 +789,10 @@ COMM.kick = function(userName, channelName, userToKick) {
 		target.sendMsg(json);
 	}
 }
-COMM.kick.desc = "/kick [username]<br/>";
+COMM.kick.desc = "/kick [username]<br/>"
++ "<br/>" + "Used to forcefully remove a user from channel"
++ "<br/>" + "Op status needed to preform command"
++ "<br/>" + "Needs to be written in the channel window of which target user is in";
 
 /**
  *	BAN
@@ -782,7 +804,7 @@ COMM.ban = function(userName, channelName, userToBan) {
 	// channel must exist
 	if(channel !== undefined) {
 		// target must be set
-		if(userToBan !== undefined || userToBan !== "") {
+		if(userToBan !== undefined && userToBan !== "") {
 			// is user op? n -> e, no perm
 			if(channel.isOp(userName)) {
 				// is target op? y -> e, deop first
@@ -797,10 +819,12 @@ COMM.ban = function(userName, channelName, userToBan) {
 						out = userToBan + " has been banned by " + userName;
 						json = createJSON(out, "Server", type, channelName);
 						channel.broadcastMsg(json);
-						type = "notice";
-						out = "You were banned from " + channelName + " by " + userName;
-						json = createJSON(out, "Server", type, channelName);
-						target.sendMsg(json);
+						if(target !== undefined) {
+							type = "notice";
+							out = "You were banned from " + channelName + " by " + userName;
+							json = createJSON(out, "Server", type, channelName);
+							target.sendMsg(json);
+						}
 					} else {
 						type = "error";
 						out = userToBan + " is already banned";
@@ -827,7 +851,11 @@ COMM.ban = function(userName, channelName, userToBan) {
 		user.sendMsg(json);
 	}
 }
-COMM.ban.desc = "/ban [username]<br/>";
+COMM.ban.desc = "/ban [username]<br/>"
++ "<br/>" + "Used to disallow a user to write or join channel"
++ "<br/>" + "Op status needed to preform command"
++ "<br/>" + "User does not need to be in channel or online"
++ "<br/>" + "Needs to be written in the channel window of which target user is to be banned from";
 
 /**
  *	UNBAN
@@ -873,7 +901,12 @@ COMM.unban = function(userName, channelName, userToUnban) {
 			break;
 	}
 }
-COMM.unban.desc = "/unban (username)<br/>";
+COMM.unban.desc = "/unban (username)<br/>"
++ "<br/>" + "Used to list banned users or to remove a user from banlist"
++ "<br/>" + "Just writing /unban will list the users"
++ "<br/>" + "Op status needed to preform command"
++ "<br/>" + "User does not need to be in channel or online"
++ "<br/>" + "Needs to be written in the channel window of which target user is to be unbanned from";
 
 // -----------------------------------------------------------------------------
 // CHANNEL as object
@@ -1124,7 +1157,7 @@ function acceptConnectionAsChat(request) {
 			userList[userName].sendMsg(json);
 		} else {
 			channel = clientMsg.window;
-			msg = htmlEntities(clientMsg.msg);
+			msg = htmlEntities(clientMsg.msg.substr(0, COMM.max_msg));
 			// what type of msg? text or command?
 			// is priv? :private
 			var isPriv = false;
@@ -1134,7 +1167,7 @@ function acceptConnectionAsChat(request) {
 			}
 			// is command? /
 			// written in log?
-			if(msg.substr(0, 1) === "/" || channel === "log") {
+			if(msg.substr(0, 1) === "/") {
 				console.log(time + " Recieved command from " + userName + ": " + msg);
 				// split message, get first word
 				var command = msg.split(" ")[0];
@@ -1165,7 +1198,10 @@ function acceptConnectionAsChat(request) {
 						args.shift();
 						nick = args.shift();
 						// remove chars
-						nick = nick.replace(/[^a-zA-Z0-9]/g, "");
+						if(nick !== undefined && nick !== "") {
+							nick = nick.replace(/&.{0,}?;/g, "");
+							nick = nick.replace(/[^a-zA-Z0-9]/g, "");
+						}
 						userName = COMM.nick(userName, nick);
 						break;
 					case("whois"):
@@ -1182,6 +1218,8 @@ function acceptConnectionAsChat(request) {
 						args = msg.split(" ");
 						args.shift();
 						var listChannel = args.shift();
+						console.log("From: " + channel);
+						console.log("Parameter: " + listChannel);						
 						// if no argument, do for active channel
 						if(listChannel === undefined || listChannel === "") {
 							COMM.names(userName, channel);
@@ -1195,7 +1233,7 @@ function acceptConnectionAsChat(request) {
 						args = msg.split(" ");
 						args.shift();
 						channel = args.shift();
-						if(channel !== undefined || channel !== "") {
+						if(channel !== undefined && channel !== "") {
 							channel = channel.replace("#", "");
 						}
 						COMM.join(userName, channel);
@@ -1272,21 +1310,23 @@ function acceptConnectionAsChat(request) {
 						break;
 				}
 			} else {
-				console.log(time + " Recieved message from " + userName + ": " + msg);
-				if(isPriv === true) {
-					// to priv window
-					COMM.msg(userName, channel, msg);
-				} else {
-					var channelObject = channelList[channel];
-					if(channelObject.isBanned(userName) === true) {
-						var user = userList[userName];
-						out = "Can not write to channel - banned";
-						json = createJSON(out, userName, "error", channel);
-						user.sendMsg(json);
+				if(channel !== "log") {
+					console.log(time + " Recieved message from " + userName + ": " + msg);
+					if(isPriv === true) {
+						// to priv window
+						COMM.msg(userName, channel, msg);
 					} else {
-						// public message, do broadcast
-						json = createJSON(msg, userName, "message", channel);
-						channelObject.broadcastMsg(json);
+						var channelObject = channelList[channel];
+						if(channelObject.isBanned(userName) === true) {
+							var user = userList[userName];
+							out = "Can not write to channel - banned";
+							json = createJSON(out, userName, "error", channel);
+							user.sendMsg(json);
+						} else {
+							// public message, do broadcast
+							json = createJSON(msg, userName, "message", channel);
+							channelObject.broadcastMsg(json);
+						}
 					}
 				}
 
