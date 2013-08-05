@@ -410,7 +410,7 @@ COMM.names = function(userName, channelName, toLog) {
 
 	// not names for empty/missing channel or log
 	if(channelName !== "log" && channel !== undefined) {
-		out = channel.getNames();
+		out = "Users currently in #" + channelName +  ":<br/>" + channel.getNames();
 		// if toLog was set, channel came from parameter, print to log (notice)
 		if(toLog === true) {
 			type = "notice";
@@ -480,7 +480,7 @@ COMM.join = function(userName, channelName) {
 				channel.removeUser(userName);
 				// remove channel from target listings and interface
 				user.leaveChannel(channelName);
-				
+
 				type = "status";
 				out = userName + " was kicked from channel by the server";
 				json = createJSON(out, "Server", type, channelName);
@@ -950,7 +950,7 @@ Channel.prototype = {
 	},
 	getNames: function() {
 		var names, list = this.createUserlist();
-		names = "Users currently in channel:<br/>";
+		names = "";
 		for(var i in list) {
 			names += "[" + list[i] + "] ";
 		}
@@ -1063,7 +1063,7 @@ function User(connection) {
 
 User.prototype = {
 	// variables
-	idleTimer: 1000,	
+	idleTimer: 1000,
 	// getters
 	getChannels: function() {
 		return this.activeChannels;
@@ -1219,7 +1219,7 @@ function acceptConnectionAsChat(request) {
 						args.shift();
 						var listChannel = args.shift();
 						console.log("From: " + channel);
-						console.log("Parameter: " + listChannel);						
+						console.log("Parameter: " + listChannel);
 						// if no argument, do for active channel
 						if(listChannel === undefined || listChannel === "") {
 							COMM.names(userName, channel);
@@ -1227,6 +1227,9 @@ function acceptConnectionAsChat(request) {
 							// do for argument sent
 							listChannel = listChannel.replace("#", "");
 							COMM.names(userName, listChannel, true);
+						} else {
+							listChannel = listChannel.replace("#", "");
+							COMM.names(userName, listChannel);							
 						}
 						break;
 					case("join"):
@@ -1234,6 +1237,8 @@ function acceptConnectionAsChat(request) {
 						args.shift();
 						channel = args.shift();
 						if(channel !== undefined && channel !== "") {
+							channel = channel.replace(/&.{0,}?;/g, "");
+							channel = channel.replace(/[^a-zA-Z0-9]/g, "");
 							channel = channel.replace("#", "");
 						}
 						COMM.join(userName, channel);
