@@ -87,3 +87,109 @@ you can see some of the essential classes and ID's used to create and run the
 client.
 
 SERVER
+
+Messages are recieved as JSON, containing:
+window:
+msg:
+Server responds with a JSON object that contains:
+type:
+data:{}
+
+The different times that the clients needs to handle are:
+action
+	Actions are /me-actions printed in specific window
+error
+	Error messages are always printed to current window
+message
+	Simple text message to specific window
+notice
+	Message from server always printed to status/log
+private
+	Private text message to private window
+status
+	Server response, often user status change, or topics, to specific
+toggle
+	Toggles a window: opens or closes a channel
+topic
+	Sets a window topic, printed in #hTopic
+update
+	Updates a name of a private window (on namechange)
+users
+	Updates userlist of a channel
+
+
+The protocol is run in the function acceptConnectionAsChat(request).
+
+On first message sent, a username is set
+All messages after that are handled as either text or commands
+Commands are all text message that start with "/"
+Commands are then handled in a switch case
+	Arguments are split by word from the message
+	Command-function is then run from COMM
+		COMM-functions handle the logic of the command and create a response
+		COMM-functions then call on either User och Channel where the response is sent
+Simple messages are broadcasted to a channel or sent to a target user (priv)
+
+COMM {}
+	Contains functions for all commands, descriptions of commands, helpfunctions
+	and nick and message limits
+
+Channel object prototype
+	Each channel has it's own object which contains:
+	ops[]
+	bans[]
+	users[]
+	topic{}
+	created{}
+	
+	The prototype contains channelspecific functions for all channels:
+	// getters
+	createUserlist: function()
+	getBanlist: function()
+	getCreated: function()
+	getNames: function()
+	getTopic: function()
+	getTopicText: function()
+	// setters
+	addBan: function(user)
+	addOp: function(user)
+	addUser: function(user)
+	removeBan: function(user)
+	removeOp: function(user)
+	removeUser: function(user)
+	setTopic: function(text, user)
+	switchName: function(oldNick, newNick)
+	// checks
+	inChannel: function(user)
+	isBanned: function(user)
+	isOp: function(user)
+	isOwner: function(user)
+	broadcastMsg: function(json)
+	
+User object prototype
+	Each connection user is saved as an object which contains:
+	id
+	activeChannels[]
+	privs[]
+	
+	The prototype contains userspecific functions and variables for all users:
+	// variables
+	idleTimer: 1000,
+	// getters
+	getChannels: function()
+	getInfo: function(nick)
+	getPrivs: function()
+	// setters
+	addChannel: function(channel)
+	addPriv: function(nick)
+	leaveChannel: function(channel)
+	// checks
+	isInChannel: function(channel)
+	isInPriv: function(nick
+	// other
+	sendMsg: function(json)
+	
+Channelobjects are found in channelList{} by name, and userobjects are found in 
+userList{} by name
+Client websocket info is stored in connectedClients[]
+
