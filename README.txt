@@ -127,7 +127,8 @@ Commands are then handled in a switch case
 	Arguments are split by word from the message
 	Command-function is then run from COMM
 		COMM-functions handle the logic of the command and create a response
-		COMM-functions then call on either User och Channel where the response is sent
+		COMM-functions then call on either User och Channel where the response
+		is sent
 Simple messages are broadcasted to a channel or sent to a target user (priv)
 
 COMM {}
