@@ -3,7 +3,6 @@
  * https://github.com/Worlize/WebSocket-Node#server-example
  *
  */
-//var port = 57005; // graveraven
 var port = 8042;
 var connectedClients = [];
 var userList = {};
