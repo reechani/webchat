@@ -1,0 +1,122 @@
+/* 
+    Document   : style
+    Created on : 2012-dec-07, 12:06:34
+    Author     : Janey
+    Description:
+        Purpose of the stylesheet follows.
+*/
+
+@import "base.css";
+
+#log {
+	text-align: left;
+	background: #fff;
+	width: 29em;
+	height: 18em;
+	border-color: #dddddd;
+	border-style: inset;
+	border-width: 0.15em;
+	word-wrap: break-word;
+
+	overflow: auto;
+}
+
+#connect_url, #nick {
+	width: 20em;
+}
+
+#message {
+	width: 26.5em;
+	margin: 0;
+	text-align: left;
+}
+
+#connectForm p, #chatWindow p {
+	margin: 0;
+}
+
+#chatWindow {
+	text-align: center;
+	margin: 1em;
+	padding: 1em;
+	background-color: #ddeeff;
+}
+
+#channelWindow {
+	display: inline-block;
+}
+
+#hicon, #help {
+	float: right;
+}
+
+#hicon {
+	cursor: pointer;
+}
+
+#help {
+	cursor: help;
+	border-style: solid;
+	border-width: 0.3em;
+	border-color: #7dcbff;
+	color: #057ac7;
+	font-size: 0.8em;
+	position: absolute;
+	background: #d1ecff;
+	background: -webkit-linear-gradient(left, #d1ecff, #fff);
+	border-radius: 1.5em;
+	padding-left: 1em;
+	padding-right: 1em;
+	width: 30em;
+	box-shadow: 2px 2px 7px #bbb;
+}
+
+/*#instructions {
+	float: right;
+	width: 325px;
+	font-size: 0.75em;
+}
+
+#instructions p, #instructions h3, #instructions ul {
+	margin: 0.1em;
+}*/
+
+code {
+	font-size: 1.3em;
+}
+
+#close {
+	display: block;
+}
+
+.sidebar {
+	display: inline-block;
+}
+
+.sidebar:after {
+	clear: both;
+}
+
+.sidebar select {
+	width: 13em;
+}
+
+.left {
+	float: left;
+}
+
+.right {
+	float: right;
+}
+
+#chatWindow header {
+	height: 1.3em;
+}
+
+.template {
+	display: none;
+}
+
+.hilightChat {
+	color: #f00;
+}
