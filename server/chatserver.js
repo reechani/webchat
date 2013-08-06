@@ -619,7 +619,7 @@ COMM.op = function(userName, channelName, userToOp) {
 	// channel must exist
 	if(channel !== undefined) {
 		// is username op?
-		if(userToOp !== undefined || userToOp !== "") {
+		if(userToOp !== undefined && userToOp !== "") {
 			if(channel.isOp(userName)) {
 				// user is op
 				// is target in channel?
@@ -675,7 +675,7 @@ COMM.deop = function(userName, channelName, userToDeop) {
 	// channel must exist
 	if(channel !== undefined) {
 		// user can not be empty
-		if(userToDeop !== undefined || userToDeop !== "") {
+		if(userToDeop !== undefined && userToDeop !== "") {
 			// is user op?
 			if(channel.isOp(userName)) {
 				// is target op?
