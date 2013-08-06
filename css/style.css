@@ -16,6 +16,7 @@
 	border-color: #dddddd;
 	border-style: inset;
 	border-width: 0.15em;
+	word-wrap: break-word;
 
 	overflow: auto;
 }
@@ -43,6 +44,31 @@
 
 #channelWindow {
 	display: inline-block;
+}
+
+#hicon, #help {
+	float: right;
+}
+
+#hicon {
+	cursor: pointer;
+}
+
+#help {
+	cursor: help;
+	border-style: solid;
+	border-width: 0.3em;
+	border-color: #7dcbff;
+	color: #057ac7;
+	font-size: 0.8em;
+	position: absolute;
+	background: #d1ecff;
+	background: -webkit-linear-gradient(left, #d1ecff, #fff);
+	border-radius: 1.5em;
+	padding-left: 1em;
+	padding-right: 1em;
+	width: 30em;
+	box-shadow: 2px 2px 7px #bbb;
 }
 
 /*#instructions {

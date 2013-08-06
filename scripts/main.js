@@ -4,7 +4,7 @@
 $(document).ready(function(){
 	"use strict";
 	
-	var url = "ws://jane.graveraven.net:57005/",
+	var url = "ws://seekers.student.bth.se:8042/",
 	websocket = null,
 	output = $("#log"),
 	userName,
@@ -17,13 +17,16 @@ $(document).ready(function(){
 
 	// Display the url in form field for the user to change
 	$("#connect_url").val(url);
+	
+	$("option").text("");
 
 	/**
 	 * Eventhandler to create the websockt connection
 	 */
 	$("#connect").on("click", function(event) {
 		// check that nick is not empty
-		if($("#nick").val() === "") {
+		userName = $("#nick").val().replace(/[^a-zA-Z0-9]/g, "");
+		if(userName === "") {
 			outputStatus("Nick cannot be empty.");
 			return;
 		}
@@ -32,8 +35,8 @@ $(document).ready(function(){
 		// show the chat window
 		$("#chatWindow").show();
 		
-		// set username
-		userName = $("#nick").val();
+		//		// set username
+		//		userName = $("#nick").val();
 		// get the url to connect to
 		url = $("#connect_url").val();
 		console.log("Connecting to: " + url);
@@ -42,7 +45,23 @@ $(document).ready(function(){
 			websocket = null;
 		}
 		// connect with the chat-protocol
-		websocket = new WebSocket(url, "chat-protocol");
+		try {
+			websocket = new WebSocket(url, "chat-protocol");
+		} catch(e) {
+			// reset output content
+			$("#output").html("");
+			// hide chat
+			$("#chatWindow").hide();
+			// show connection form
+			$("#connectForm").show();
+			clear(); // clears all chat content and variables
+			if(e.name === "SyntaxError") {
+				outputStatus("Invalid url");
+			} else {
+				outputStatus("Disconnected from chat");
+			}
+			return;
+		}
 
 		websocket.onopen = function() {
 			console.log("The websocket is now open.");
@@ -130,6 +149,7 @@ $(document).ready(function(){
 			outputStatus("Disconnected from chat");
 			clear(); // clears all chat content and variables
 		}
+
 	});
 	
 	// -------------------------------------------------------------------------
@@ -324,23 +344,27 @@ $(document).ready(function(){
 		var to = data.author + ":private";
 		var from = data.channel;
 		// save the channel (history and stuff)
-		var targetChannel = channels[from];
-		// remove old one
-		delete channels[from];
-		// set the new position
-		channels[to] = targetChannel;
-		// change the name to the new name
-		channels[to].name = data.author;
-		// if active, save log, and update list
-		/* log disappears on change if not saved to the new one */
-		if(active == from) {
-			console.log("priv was active, copied log, set to active");
-			channels[to].history = $("#log").html();
-			updateChannels();
-			setActiveChannel(to);
+		if(channels[to] === undefined) {
+			var targetChannel = channels[from];
+			// remove old one
+			delete channels[from];
+			// set the new position
+			channels[to] = targetChannel;
+			// change the name to the new name
+			channels[to].name = data.author;
+			// if active, save log, and update list
+			/* log disappears on change if not saved to the new one */
+			if(active == from) {
+				console.log("priv was active, copied log, set to active");
+				channels[to].history = $("#log").html();
+				updateChannels();
+				setActiveChannel(to);
+			} else {
+				// update to get the new name in list
+				updateChannels();
+			}
 		} else {
-			// update to get the new name in list
-			updateChannels();
+			console.log("Priv window already exists with that name");
 		}
 	}
 	
@@ -528,7 +552,16 @@ $(document).ready(function(){
 		user += ":private";
 		// check, and add
 		checkPrivateWindow(user);
-	})
+	});
+	
+	// setup help icon
+	$("#help").hide();
+	$("#hicon").on("click", function() {
+		var pos = $(this).position();
+		var width = $("#help").outerWidth();
+		$("#help").css({top: pos.top + 20, left: pos.left - width});
+		$("#help").toggle();
+	});
 
 	console.log("Everything is ready.");
 });

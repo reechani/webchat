@@ -1,5 +1,19 @@
 <?php
 
+$helpText = <<<EOD
+<p>For help with avaiable commands in chat, send <code>/help</code> when 
+	connected. For help with a specific command send <code>/help [commandName]
+	</code> when connected</p>
+<p>Nicknames and channelnames may only contain letters and numbers.</p>
+<p>Send a message by typing in the message field and press enter or the button 
+	<code>Send message</code></p>
+<p>You can send a private message to another user by either doubleclicking 
+	their names in the userlist and sending a message or using the <code>/msg
+	</code> command. Type <code>/help msg</code> to see how to use it.</p>
+<p>New activity in a window that is not active is shown by a hilight, a change 
+	in color on the name of the window in the channellist.</p>
+EOD;
+
 function createChatUI() {
 	$html = "<div id='chat'>";
 	
@@ -15,7 +29,7 @@ function getList($id, $float) {
 <div class="sidebar {$float}">
 	<header>{$id}</header>
 	<select size="18" name="{$id}" id="{$id}">
-		<option value="template"></option>
+		<option value="template" class="template">empty</option>
 	</select>
 </div>
 EOD;
@@ -69,5 +83,15 @@ function getConnectForm() {
 </form>
 EOD;
 	
+	return $html;
+}
+
+function getHelpText($text) {
+	$html = <<<EOD
+<img src="css/helpicon.png" width=19 height=23 id="hicon" alt="help icon" />
+<div id="help">
+	$text
+</div>
+EOD;
 	return $html;
 }
