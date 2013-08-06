@@ -260,3 +260,45 @@ DONE: Part seems to be working, also clears on clientside
 --------------------------------------------------------------------------------
 2013-02-24
 
+/list works
+/names work
+
+[FIXED] bug in parting: can't rejoin channel, says I'm in it
+
+started /topic, unfinished
+
+--------------------------------------------------------------------------------
+2013-07-17
+
+3hrs
+
+started again
+finished topic, now sets, gets and updates topic to client
+TODO:
+	fix topic timestamp
+	show ops in client userslist
+
+tested to find bugs and what's not finished:
+	/names only prints to channel, if not in it - can't see it
+	/nick doesn't display error if nick already in use
+	/nick doesn't change clients privwindow name -> msg again creates new window to new nick
+	commands don't work in priv-windows
+	/whois gives unix timestamp instead of proper datetime
+
+considering removing ignore and voice-functions
+
+--------------------------------------------------------------------------------
+2013-07-17
+
+fixed topic timestamp
+sends userlist with added @ for ops, plain text
+created function shells for deop, devoice and unban
+
+--------------------------------------------------------------------------------
+2013-07-31
+
+TIL that chrome uses the timeformat of the language set in the browser if
+running toLocaleTimeString() instead of the settings on the OS. Since Swedish
+was not an alternative, I happily discovered that changing from EngUS to EngUK
+made chrome display time the way I wanted.
+
